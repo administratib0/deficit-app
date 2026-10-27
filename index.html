@@ -63,7 +63,7 @@ button.full,.btn.full{width:100%}
 <script>
 var $=function(s){return document.querySelector(s)}
 var KEY='deficit_v1'
-var VER=3
+var VER=4
 var S=(function(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}})()
 S.set=S.set||{key:'',model:'claude-sonnet-5-5',kcal:1800,prot:100}
 S.meals=S.meals||{};S.wk=S.wk||{};S.wt=S.wt||[];S.chat=S.chat||[]
@@ -72,7 +72,7 @@ var pad=function(n){return String(n).padStart(2,'0')}
 var today=function(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 var fmt=function(n){return Number(n||0).toLocaleString('en-US')}
 var esc=function(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
-var tab='today',pending=null,busy='',errTxt='',draft='',recOpen=false
+var tab='today',pending=null,busy='',errTxt='',draft='',recOpen=false,editW=false
 var SLOTS=['Breakfast','Lunch','Dinner','Snack']
 var guess=function(){var h=new Date().getHours();return h>=5&&h<10?0:h>=10&&h<15?1:h>=15&&h<21?2:3}
 var slot=SLOTS[guess()]
@@ -81,6 +81,10 @@ var FOODSYS='You estimate calories and macros for foods, mostly Filipino and com
 var EX=[['Warm-up march','3 min'],['Wall / knee push-ups','3 x 8-12'],['Bodyweight squats','2 x 10-15'],['Forearm plank','3 x 15-30 sec'],['Dead bugs','2 x 8-10 each side'],['Brisk march','4 rounds, 40s fast / 20s easy']]
 var PLAN=['45-60 min walk','Full workout','Full workout','Rest day','Full workout','Rest day','30-45 min walk']
 var DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+S.ex=S.ex||EX.map(function(e){return {n:e[0],d:e[1]}})
+S.plan=S.plan||PLAN.slice()
+S.walk=S.walk||{}
+if(S.wd==null){S.wd=6}
 
 function totals(){
  var m=S.meals[today()]||[],k=0,p=0,c=0,f=0
@@ -184,7 +188,7 @@ function streak(){
  var n=0,d=new Date()
  for(var i=0;i<60;i++){
   var k=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())
-  var done=(S.wk[k]||[]).length>=EX.length
+  var done=(S.wk[k]||[]).length>=S.ex.length
   if(done){n++}else if(i>0){break}
   d.setDate(d.getDate()-1)
  }
@@ -214,6 +218,7 @@ function saveSet(){
  S.set.key=$('#sk').value.trim()
  S.set.model=$('#sm').value.trim()||'claude-sonnet-5-5'
  S.set.kcal=+$('#sc').value||1800
+ S.wd=+$('#sw').value
  S.set.prot=+$('#sp').value||100
  save();errTxt='Saved.';draw()
 }
@@ -222,7 +227,7 @@ function sendCoach(){
  var el=$('#q'),q=el.value.trim()
  if(!q||busy){return}
  var t=totals(),last=S.wt.slice(-5).map(function(x){return x.d+': '+x.v+'kg'}).join(', ')
- var sys='You are a practical weight-loss coach for Nico, 34, male, 5\'5", works night shift 11PM-7AM Mon-Fri, does bodyweight workouts of 20-30 min. Eats rice with chicken, pork or beef, usually lunch and dinner. Daily target '+S.set.kcal+' kcal and '+S.set.prot+' g protein. Today so far: '+t.k+' kcal, '+t.p+' g protein. Recent weights: '+(last||'none')+'. Workout today: '+(S.wk[today()]||[]).length+'/'+EX.length+' done. Plan: '+PLAN[new Date().getDay()]+'. Be short, specific, Taglish is fine. If asked to plan meals, use Filipino food. No medical diagnosis; for medication questions tell them to see a clinician.'
+ var sys='You are a practical weight-loss coach for Nico, 34, male, 5\'5", works night shift 11PM-7AM Mon-Fri, does bodyweight workouts of 20-30 min. Eats rice with chicken, pork or beef, usually lunch and dinner. Daily target '+S.set.kcal+' kcal and '+S.set.prot+' g protein. Today so far: '+t.k+' kcal, '+t.p+' g protein. Recent weights: '+(last||'none')+'. Workout today: '+(S.wk[today()]||[]).length+'/'+S.ex.length+' done. Walked '+(S.walk[today()]||0)+' min today. Plan: '+S.plan[new Date().getDay()]+'. Be short, specific, Taglish is fine. If asked to plan meals, use Filipino food. No medical diagnosis; for medication questions tell them to see a clinician.'
  var hist=S.chat.slice(-8).map(function(m){return {role:m.r,content:m.t}})
  S.chat.push({r:'user',t:q});el.value='';busy='Thinking...';errTxt='';draw()
  ask(q,sys,hist).then(function(a){S.chat.push({r:'assistant',t:a});save()}).catch(function(e){errTxt=e.message;S.chat.pop()}).then(function(){busy='';draw()})
@@ -251,7 +256,7 @@ function vToday(){
  var rec=recent().map(function(m,i){
   return '<div class="item" onclick="reAdd('+i+')"><div><b>'+esc(m.n)+'</b><br><span>'+fmt(m.k)+' kcal &middot; P '+m.p+'</span></div><b style="color:var(--acc)">+ '+slot+'</b></div>'
  }).join('')
- return '<h1>'+DAYS[new Date().getDay()]+'</h1><div class="sub">'+today()+'</div>'+
+ return '<h1>'+DAYS[new Date().getDay()]+'</h1><div class="sub">'+today()+'</div>'+weighBanner()+
  '<div class="card"><div class="big" style="color:'+(left<0?'var(--bad)':'var(--ink)')+'">'+fmt(Math.abs(left))+'<small>kcal '+(left<0?'over':'left')+'</small></div>'+
  '<div class="bar"><i style="width:'+pk+'%"></i></div><div class="note">'+fmt(t.k)+' of '+fmt(S.set.kcal)+' kcal</div>'+
  '<div class="bar p"><i style="width:'+pp+'%"></i></div><div class="note">Protein '+fmt(t.p)+' of '+fmt(S.set.prot)+' g &middot; Carbs '+fmt(t.c)+' g &middot; Fat '+fmt(t.f)+' g</div></div>'+
@@ -263,16 +268,55 @@ function vToday(){
  '<details class="card"><summary>Add by hand</summary><div style="margin-top:10px"><input id="mn" placeholder="Food"><div class="row"><input id="mk" type="number" inputmode="numeric" placeholder="kcal"><input id="mp" type="number" inputmode="numeric" placeholder="protein g"></div><button class="sec full" onclick="addManual()">Add to '+slot+'</button></div></details>'
 }
 
+function weekWalk(){
+ var n=0,d=new Date()
+ for(var i=0;i<7;i++){
+  var k=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())
+  n+=S.walk[k]||0
+  d.setDate(d.getDate()-1)
+ }
+ return n
+}
+function logWalk(m){
+ var d=today()
+ S.walk[d]=m===0?0:(S.walk[d]||0)+m
+ save();draw()
+}
+function toggleEdit(){editW=true;draw()}
+function readEdits(){
+ if(!editW){return}
+ S.ex=S.ex.map(function(e,i){return {n:($('#en'+i)||{value:e.n}).value,d:($('#ed'+i)||{value:e.d}).value}})
+ S.plan=S.plan.map(function(p,i){return ($('#pl'+i)||{value:p}).value})
+}
+function addEx(){readEdits();S.ex.push({n:'New exercise',d:'3 x 10'});save();draw()}
+function delEx(i){readEdits();S.ex.splice(i,1);S.wk[today()]=[];save();draw()}
+function saveEdits(){readEdits();editW=false;save();draw()}
+function weighBanner(){
+ if(new Date().getDay()!==S.wd){return ''}
+ if(S.wt.some(function(x){return x.d===today()})){return ''}
+ return '<div class="card" style="border-color:var(--acc)"><b>Weigh-in day</b><div class="note" style="margin:4px 0 8px">Same time, same conditions. Log it in the Me tab.</div><button class="full" onclick="tab=\'me\';draw()">Go to weight</button></div>'
+}
+
 function vWork(){
- var done=S.wk[today()]||[],dow=new Date().getDay()
- var list=EX.map(function(e,i){
-  var d=done.indexOf(i)>-1
-  return '<label class="ck'+(d?' d':'')+'"><input type="checkbox" '+(d?'checked':'')+' onchange="tick('+i+',this.checked)"><div>'+e[0]+'<span>'+e[1]+'</span></div></label>'
+ var done=S.wk[today()]||[],dow=new Date().getDay(),list
+ if(editW){
+  list=S.ex.map(function(e,i){
+   return '<div style="margin-bottom:10px"><input id="en'+i+'" value="'+esc(e.n)+'" placeholder="Exercise"><div class="row"><input id="ed'+i+'" value="'+esc(e.d)+'" placeholder="Sets, reps or time" style="margin:0"><button class="sec" onclick="delEx('+i+')">Delete</button></div></div>'
+  }).join('')+'<button class="sec full" onclick="addEx()">+ Add exercise</button>'
+ }else{
+  list=S.ex.map(function(e,i){
+   var d=done.indexOf(i)>-1
+   return '<label class="ck'+(d?' d':'')+'"><input type="checkbox" '+(d?'checked':'')+' onchange="tick('+i+',this.checked)"><div>'+esc(e.n)+'<span>'+esc(e.d)+'</span></div></label>'
+  }).join('')
+ }
+ var wk=S.plan.map(function(p,i){
+  if(editW){return '<div class="item"><b style="min-width:96px">'+DAYS[i]+'</b><input id="pl'+i+'" value="'+esc(p)+'" style="margin:0"></div>'}
+  return '<div class="item"><b'+(i===dow?' style="color:var(--acc)"':'')+'>'+DAYS[i]+'</b><span>'+esc(p)+'</span></div>'
  }).join('')
- var wk=PLAN.map(function(p,i){return '<div class="item"><b'+(i===dow?' style="color:var(--acc)"':'')+'>'+DAYS[i]+'</b><span>'+p+'</span></div>'}).join('')
- return '<h1>Workout</h1><div class="sub">Today: '+PLAN[dow]+' &middot; streak '+streak()+' day'+(streak()===1?'':'s')+'</div>'+
- '<div class="card"><h2>Bodyweight routine (20-30 min)</h2>'+list+'<p class="note">'+done.length+' of '+EX.length+' done. Start with 2 sets if it feels heavy.</p></div>'+
- '<div class="card"><h2>Week</h2>'+wk+'</div>'
+ return '<h1>Workout</h1><div class="sub">Today: '+esc(S.plan[dow])+' &middot; streak '+streak()+' day'+(streak()===1?'':'s')+'</div>'+
+ '<div class="card"><div class="row sp"><h2>Routine</h2><button class="sec" style="padding:6px 14px" onclick="'+(editW?'saveEdits()':'toggleEdit()')+'">'+(editW?'Save':'Edit')+'</button></div>'+list+(editW?'':'<p class="note">'+done.length+' of '+S.ex.length+' done.</p>')+'</div>'+
+ '<div class="card"><h2>Walking</h2><div class="big">'+(S.walk[today()]||0)+'<small>min today</small></div><div class="note" style="margin:6px 0 10px">Last 7 days: '+weekWalk()+' min</div><div class="row"><button class="sec" onclick="logWalk(10)">+10</button><button class="sec" onclick="logWalk(20)">+20</button><button class="sec" onclick="logWalk(30)">+30</button><button class="sec" onclick="logWalk(0)">Reset</button></div></div>'+
+ '<div class="card"><h2>Week plan</h2>'+wk+(editW?'<p class="note">Type anything: Full workout, 30 min walk, Rest.</p>':'')+'</div>'
 }
 
 function vCoach(){
@@ -288,8 +332,9 @@ function vCoach(){
 function vMe(){
  var w=S.wt.slice(-8).reverse().map(function(x){return '<div class="item"><b>'+x.v+' kg</b><span>'+x.d+'</span></div>'}).join('')||'<div class="note">No weigh-ins yet.</div>'
  return '<h1>Me</h1><div class="sub">34 &middot; 5\'5" &middot; night shift</div>'+
- '<div class="card"><h2>Weight</h2><div class="row"><input id="wv" type="number" step="0.1" inputmode="decimal" placeholder="kg today"><button style="margin-bottom:8px" onclick="logWeight()">Log</button></div>'+w+'<p class="note">Weigh under the same conditions each time.</p></div>'+
+ '<div class="card"><h2>Weight</h2><div class="row"><input id="wv" type="number" step="0.1" inputmode="decimal" placeholder="kg today"><button style="margin-bottom:8px" onclick="logWeight()">Log</button></div>'+w+'<p class="note">Weigh once a week on your weigh-in day, same time and same conditions.</p></div>'+
  '<div class="card"><h2>Targets and AI</h2><label class="note">Calories per day</label><input id="sc" type="number" value="'+S.set.kcal+'"><label class="note">Protein g per day</label><input id="sp" type="number" value="'+S.set.prot+'">'+
+ '<label class="note">Weigh-in day</label><select id="sw">'+DAYS.map(function(d,i){return '<option value="'+i+'"'+(i===S.wd?' selected':'')+'>'+d+'</option>'}).join('')+'</select>'+
  '<label class="note">Anthropic API key</label><input id="sk" type="password" value="'+esc(S.set.key)+'" placeholder="sk-ant-..."><label class="note">Model</label><input id="sm" value="'+esc(S.set.model)+'">'+
  '<button class="full" onclick="saveSet()">Save</button>'+(errTxt?'<div class="err">'+esc(errTxt)+'</div>':'')+'<p class="note">Your key stays on this phone only. Food photos go straight to Anthropic for the estimate.</p></div>'+
  '<div class="card"><h2>Backup</h2><button class="sec full" onclick="copyBackup()">Copy my data</button><textarea id="bk" rows="3" placeholder="Paste backup here to restore" style="margin-top:8px"></textarea><button class="sec full" onclick="restoreBackup()">Restore from paste</button><p class="note">Includes your API key, so keep it private. Paste it into Notes.</p></div>'
