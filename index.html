@@ -58,21 +58,22 @@ button.full,.btn.full{width:100%}
 <button data-t="today">Today</button>
 <button data-t="workout">Workout</button>
 <button data-t="coach">Coach</button>
+<button data-t="hist">History</button>
 <button data-t="me">Me</button>
 </nav>
 <script>
 var $=function(s){return document.querySelector(s)}
 var KEY='deficit_v1'
-var VER=4
+var VER=5
 var S=(function(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}})()
 S.set=S.set||{key:'',model:'claude-sonnet-5-5',kcal:1800,prot:100}
-S.meals=S.meals||{};S.wk=S.wk||{};S.wt=S.wt||[];S.chat=S.chat||[]
+S.meals=S.meals||{};S.wk=S.wk||{};S.wt=S.wt||[];S.chat=S.chat||[];S.ui=S.ui||{};S.rev=S.rev||{}
 var save=function(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 var pad=function(n){return String(n).padStart(2,'0')}
 var today=function(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 var fmt=function(n){return Number(n||0).toLocaleString('en-US')}
 var esc=function(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
-var tab='today',pending=null,busy='',errTxt='',draft='',recOpen=false,editW=false
+var tab='today',pending=null,busy='',errTxt='',draft='',recOpen=false,editW=false,editM=-1,revBusy=false
 var SLOTS=['Breakfast','Lunch','Dinner','Snack']
 var guess=function(){var h=new Date().getHours();return h>=5&&h<10?0:h>=10&&h<15?1:h>=15&&h<21?2:3}
 var slot=SLOTS[guess()]
@@ -161,7 +162,7 @@ function addManual(){
  var d=today();S.meals[d]=S.meals[d]||[]
  S.meals[d].push({n:n,k:k,p:p,c:0,f:0,s:slot});errTxt='';save();draw()
 }
-function delMeal(i){S.meals[today()].splice(i,1);save();draw()}
+function delMeal(i){S.meals[today()].splice(i,1);editM=-1;save();draw()}
 function setSlot(i){slot=SLOTS[i];draw()}
 function recent(){
  var seen={},out=[],ds=Object.keys(S.meals).sort().reverse()
@@ -206,6 +207,76 @@ function restoreBackup(){
  }catch(e){errTxt='That is not a valid backup.';draw()}
 }
 
+function editForm(m,i){
+ var opts=SLOTS.map(function(x){return '<option'+(x===(m.s||'Snack')?' selected':'')+'>'+x+'</option>'}).join('')
+ return '<div style="padding:8px 0;border-bottom:1px solid var(--line)"><input id="en_n" value="'+esc(m.n)+'"><div class="row"><input id="en_k" type="number" inputmode="numeric" value="'+(m.k||0)+'" placeholder="kcal"><input id="en_p" type="number" inputmode="numeric" value="'+(m.p||0)+'" placeholder="protein"></div><div class="row"><input id="en_c" type="number" inputmode="numeric" value="'+(m.c||0)+'" placeholder="carbs"><input id="en_f" type="number" inputmode="numeric" value="'+(m.f||0)+'" placeholder="fat"></div><select id="en_s">'+opts+'</select><div class="row"><button class="full" onclick="saveM('+i+')">Save</button><button class="sec" onclick="editM=-1;draw()">Cancel</button></div></div>'
+}
+function startEditM(i){editM=i;draw()}
+function saveM(i){
+ var m=S.meals[today()][i]
+ m.n=$('#en_n').value.trim()||m.n
+ m.k=Math.round(+$('#en_k').value)||0
+ m.p=Math.round(+$('#en_p').value)||0
+ m.c=Math.round(+$('#en_c').value)||0
+ m.f=Math.round(+$('#en_f').value)||0
+ m.s=$('#en_s').value
+ editM=-1;save();draw()
+}
+
+function review(){
+ if(revBusy){return}
+ var t=totals(),all=S.meals[today()]||[]
+ if(!all.length){errTxt='Log something first.';draw();return}
+ var list=all.map(function(m){return (m.s||'Snack')+': '+m.n+' - '+m.k+' kcal, '+m.p+' g protein'}).join('\n')
+ var q='Review my day.\nFoods:\n'+list+'\nTotals: '+t.k+' kcal, '+t.p+' g protein, '+t.c+' g carbs, '+t.f+' g fat. Target: '+S.set.kcal+' kcal and '+S.set.prot+' g protein. Workout: '+(S.wk[today()]||[]).length+' of '+S.ex.length+' done. Walking: '+(S.walk[today()]||0)+' min. Reply short: 1) how today went in 2 sentences, 2) one thing done well, 3) one thing to adjust tomorrow with a specific food swap or portion tip.'
+ var sys='You are a practical weight-loss coach for Nico, 34, male, 5\'5", works night shift 11PM-7AM, eats mostly Filipino food with rice. Be short and specific, Taglish is fine. No medical diagnosis.'
+ revBusy=true;errTxt='';draw()
+ ask(q,sys).then(function(a){S.rev[today()]=a;save()}).catch(function(e){errTxt=e.message}).then(function(){revBusy=false;draw()})
+}
+function reviewCard(){
+ var r=S.rev[today()]
+ return '<div class="card"><h2>End-of-day review</h2>'+(r?'<div class="msg a" style="margin-right:0">'+esc(r)+'</div>':'<div class="note" style="margin-bottom:8px">One tap summary of how today went.</div>')+(revBusy?'<p><span class="spin"></span>Reviewing your day...</p>':'')+'<button class="sec full" onclick="review()">'+(r?'Redo review':'Review my day')+'</button></div>'
+}
+
+function vHist(){
+ var d=new Date(),out='',days=0,sum=0
+ for(var i=0;i<14;i++){
+  var k=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())
+  var m=S.meals[k]||[],kc=0,pr=0
+  m.forEach(function(x){kc+=+x.k||0;pr+=+x.p||0})
+  var wn=(S.wk[k]||[]).length,wl=S.walk[k]||0
+  var wt=S.wt.filter(function(x){return x.d===k})[0]
+  if(m.length||wn||wl||wt){
+   if(i<7&&m.length){days++;sum+=kc}
+   var label=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})
+   var body=''
+   SLOTS.forEach(function(sl){
+    var it=m.filter(function(x){return (x.s||'Snack')===sl})
+    if(it.length){body+='<div class="note" style="margin-top:6px"><b>'+sl+'</b></div>'+it.map(function(x){return '<div class="item"><b>'+esc(x.n)+'</b><span>'+fmt(x.k)+' kcal</span></div>'}).join('')}
+   })
+   body+='<p class="note" style="margin-top:8px">Protein '+fmt(pr)+' g &middot; Workout '+wn+'/'+S.ex.length+' &middot; Walk '+wl+' min'+(wt?' &middot; Weight '+wt.v+' kg':'')+'</p>'
+   if(S.rev[k]){body+='<div class="msg a" style="margin-right:0">'+esc(S.rev[k])+'</div>'}
+   var col=!kc?'var(--mute)':kc>S.set.kcal?'var(--bad)':'var(--ok)'
+   out+='<details class="card"><summary><b>'+label+'</b><span style="float:right;color:'+col+'">'+fmt(kc)+' kcal</span></summary><div style="margin-top:8px">'+body+'</div></details>'
+  }
+  d.setDate(d.getDate()-1)
+ }
+ return '<h1>History</h1><div class="sub">'+(days?'7-day average: '+fmt(Math.round(sum/days))+' kcal ('+days+' day'+(days>1?'s':'')+' logged)':'Last 14 days')+'</div>'+(out||'<div class="card note">Nothing logged yet.</div>')
+}
+
+function weightChart(){
+ var pts=S.wt.slice(-12)
+ if(pts.length<2){return ''}
+ var vs=pts.map(function(x){return x.v}),lo=Math.min.apply(null,vs),hi=Math.max.apply(null,vs)
+ if(hi===lo){hi=lo+1}
+ var W=300,H=110,px=30,py=18
+ var xy=pts.map(function(x,i){return [px+(W-2*px)*i/(pts.length-1),H-py-(H-2*py)*(x.v-lo)/(hi-lo)]})
+ var line=xy.map(function(a){return a[0].toFixed(1)+','+a[1].toFixed(1)}).join(' ')
+ var dots=xy.map(function(a){return '<circle cx="'+a[0].toFixed(1)+'" cy="'+a[1].toFixed(1)+'" r="3.5" style="fill:var(--acc)"/>'}).join('')
+ var diff=pts[pts.length-1].v-pts[0].v
+ return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;margin:6px 0"><polyline points="'+line+'" style="fill:none;stroke:var(--acc);stroke-width:2.5"/>'+dots+'<text x="4" y="14" font-size="11" style="fill:var(--mute)">'+hi+'</text><text x="4" y="'+(H-4)+'" font-size="11" style="fill:var(--mute)">'+lo+'</text></svg><div class="note" style="margin-bottom:8px">'+pts[0].d+' to '+pts[pts.length-1].d+': '+(diff>0?'+':'')+diff.toFixed(1)+' kg</div>'
+}
+
 function logWeight(){
  var v=parseFloat($('#wv').value)
  if(!v){return}
@@ -238,13 +309,15 @@ function vToday(){
  var t=totals(),left=S.set.kcal-t.k,pk=Math.min(100,t.k/S.set.kcal*100),pp=Math.min(100,t.p/S.set.prot*100)
  var all=S.meals[today()]||[]
  var diary=SLOTS.map(function(s){
-  var rows='',sk=0
+  var rows='',sk=0,cnt=0
   all.forEach(function(m,i){
    if((m.s||'Snack')!==s){return}
-   sk+=+m.k||0
-   rows+='<div class="item"><div><b>'+esc(m.n)+'</b><br><span>'+fmt(m.k)+' kcal &middot; P '+m.p+' &middot; C '+(m.c||0)+' &middot; F '+(m.f||0)+'</span></div><button class="x" onclick="delMeal('+i+')">&times;</button></div>'
+   sk+=+m.k||0;cnt++
+   if(i===editM){rows+=editForm(m,i);return}
+   rows+='<div class="item"><div onclick="startEditM('+i+')" style="flex:1"><b>'+esc(m.n)+'</b><br><span>'+fmt(m.k)+' kcal &middot; P '+m.p+' &middot; C '+(m.c||0)+' &middot; F '+(m.f||0)+'</span></div><button class="x" onclick="delMeal('+i+')">&times;</button></div>'
   })
-  return '<div class="card"><div class="row sp"><h2>'+s+'</h2><span class="note">'+fmt(sk)+' kcal</span></div>'+(rows||'<div class="note">Nothing yet.</div>')+'</div>'
+  var op=S.ui[s]===undefined?s===slot:S.ui[s]
+  return '<details class="card"'+(op?' open':'')+' ontoggle="S.ui.'+s+'=this.open;save()"><summary><b>'+s+'</b><span class="note" style="float:right">'+fmt(sk)+' kcal'+(cnt?' &middot; '+cnt+' item'+(cnt>1?'s':''):'')+'</span></summary><div style="margin-top:8px">'+(rows||'<div class="note">Nothing yet.</div>')+'</div></details>'
  }).join('')
  var chips=SLOTS.map(function(s,i){
   return '<button class="'+(s===slot?'':'sec')+'" style="padding:8px 12px;font-size:14px;margin:0 6px 8px 0" onclick="setSlot('+i+')">'+s+'</button>'
@@ -263,7 +336,7 @@ function vToday(){
  '<div class="card"><h2>Log food</h2><div>'+chips+'</div>'+
  '<div class="row"><input id="ft" value="'+esc(draft)+'" oninput="draft=this.value" onkeydown="if(event.key===\'Enter\')logText()" placeholder="e.g. 2 white bread, 1 fried egg" style="margin:0"><button onclick="logText()">Log</button></div>'+
  (busy?'<p><span class="spin"></span>'+busy+'</p>':'')+(errTxt?'<div class="err">'+esc(errTxt)+'</div>':'')+
- '<label class="btn sec full" style="margin-top:10px">Scan with camera<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this)"></label></div>'+pend+diary+
+ '<label class="btn sec full" style="margin-top:10px">Scan with camera<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this)"></label></div>'+pend+diary+reviewCard()+
  (rec?'<details class="card"'+(recOpen?' open':'')+' ontoggle="recOpen=this.open"><summary><b>Recent foods</b></summary><div style="margin-top:8px">'+rec+'</div></details>':'')+
  '<details class="card"><summary>Add by hand</summary><div style="margin-top:10px"><input id="mn" placeholder="Food"><div class="row"><input id="mk" type="number" inputmode="numeric" placeholder="kcal"><input id="mp" type="number" inputmode="numeric" placeholder="protein g"></div><button class="sec full" onclick="addManual()">Add to '+slot+'</button></div></details>'
 }
@@ -332,7 +405,7 @@ function vCoach(){
 function vMe(){
  var w=S.wt.slice(-8).reverse().map(function(x){return '<div class="item"><b>'+x.v+' kg</b><span>'+x.d+'</span></div>'}).join('')||'<div class="note">No weigh-ins yet.</div>'
  return '<h1>Me</h1><div class="sub">34 &middot; 5\'5" &middot; night shift</div>'+
- '<div class="card"><h2>Weight</h2><div class="row"><input id="wv" type="number" step="0.1" inputmode="decimal" placeholder="kg today"><button style="margin-bottom:8px" onclick="logWeight()">Log</button></div>'+w+'<p class="note">Weigh once a week on your weigh-in day, same time and same conditions.</p></div>'+
+ '<div class="card"><h2>Weight</h2><div class="row"><input id="wv" type="number" step="0.1" inputmode="decimal" placeholder="kg today"><button style="margin-bottom:8px" onclick="logWeight()">Log</button></div>'+weightChart()+w+'<p class="note">Weigh once a week on your weigh-in day, same time and same conditions.</p></div>'+
  '<div class="card"><h2>Targets and AI</h2><label class="note">Calories per day</label><input id="sc" type="number" value="'+S.set.kcal+'"><label class="note">Protein g per day</label><input id="sp" type="number" value="'+S.set.prot+'">'+
  '<label class="note">Weigh-in day</label><select id="sw">'+DAYS.map(function(d,i){return '<option value="'+i+'"'+(i===S.wd?' selected':'')+'>'+d+'</option>'}).join('')+'</select>'+
  '<label class="note">Anthropic API key</label><input id="sk" type="password" value="'+esc(S.set.key)+'" placeholder="sk-ant-..."><label class="note">Model</label><input id="sm" value="'+esc(S.set.model)+'">'+
@@ -342,7 +415,7 @@ function vMe(){
 
 function draw(){
  var v=$('#v'),keep=document.activeElement&&document.activeElement.id,val=keep&&document.activeElement.value
- v.innerHTML={today:vToday,workout:vWork,coach:vCoach,me:vMe}[tab]()
+ v.innerHTML={today:vToday,workout:vWork,coach:vCoach,hist:vHist,me:vMe}[tab]()
  document.querySelectorAll('#nav button').forEach(function(b){b.className=b.dataset.t===tab?'on':''})
  if(keep&&$('#'+keep)&&val){$('#'+keep).value=val}
 }
