@@ -64,27 +64,28 @@ button.full,.btn.full{width:100%}
 <script>
 var $=function(s){return document.querySelector(s)}
 var KEY='deficit_v1'
-var VER=5
+var VER=6
 var S=(function(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}})()
 S.set=S.set||{key:'',model:'claude-sonnet-5-5',kcal:1800,prot:100}
-S.meals=S.meals||{};S.wk=S.wk||{};S.wt=S.wt||[];S.chat=S.chat||[];S.ui=S.ui||{};S.rev=S.rev||{}
+S.meals=S.meals||{};S.wk=S.wk||{};S.wt=S.wt||[];S.chat=S.chat||[];S.ui=S.ui||{}
 var save=function(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 var pad=function(n){return String(n).padStart(2,'0')}
 var today=function(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 var fmt=function(n){return Number(n||0).toLocaleString('en-US')}
 var esc=function(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
-var tab='today',pending=null,busy='',errTxt='',draft='',recOpen=false,editW=false,editM=-1,revBusy=false
+var tab='today',pending=null,busy='',errTxt='',draft='',recOpen=false,editW=false,editM=-1
 var SLOTS=['Breakfast','Lunch','Dinner','Snack']
 var guess=function(){var h=new Date().getHours();return h>=5&&h<10?0:h>=10&&h<15?1:h>=15&&h<21?2:3}
 var slot=SLOTS[guess()]
 var FOODSYS='You estimate calories and macros for foods, mostly Filipino and common store-bought items. Reply with JSON only, no markdown: {"items":[{"name":"","kcal":0,"protein":0,"carbs":0,"fat":0}],"note":""}. Split the meal into separate items when it has several foods. Use a normal serving size if the amount is not given. Rice is about 200 kcal per cup. note is one short tip or empty.'
 
-var EX=[['Warm-up march','3 min'],['Wall / knee push-ups','3 x 8-12'],['Bodyweight squats','2 x 10-15'],['Forearm plank','3 x 15-30 sec'],['Dead bugs','2 x 8-10 each side'],['Brisk march','4 rounds, 40s fast / 20s easy']]
-var PLAN=['45-60 min walk','Full workout','Full workout','Rest day','Full workout','Rest day','30-45 min walk']
+var EX=[['Warm-up march in place','3 min'],['Squats','3 x 12'],['Wall or knee push-ups','3 x 8-12'],['Reverse lunges','3 x 8 each leg'],['Slow mountain climbers','3 x 30 sec'],['Step jacks (no jumping)','3 x 40 sec'],['Plank','3 x 20-30 sec'],['Cool-down stretch','2 min']]
+var PLAN=['Walk 45 min','Workout','Walk 30 min','Rest day','Workout','Walk 30 min','Workout']
 var DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
 S.ex=S.ex||EX.map(function(e){return {n:e[0],d:e[1]}})
 S.plan=S.plan||PLAN.slice()
 S.walk=S.walk||{}
+if(S.exv!==2){S.ex=EX.map(function(e){return {n:e[0],d:e[1]}});S.plan=PLAN.slice();S.exv=2;save()}
 if(S.wd==null){S.wd=6}
 
 function totals(){
@@ -156,12 +157,6 @@ function addPending(){
  pending.items.forEach(function(i){S.meals[d].push({n:i.name,k:Math.round(i.kcal)||0,p:Math.round(i.protein)||0,c:Math.round(i.carbs)||0,f:Math.round(i.fat)||0,s:slot})})
  pending=null;save();draw()
 }
-function addManual(){
- var n=$('#mn').value.trim(),k=+$('#mk').value,p=+$('#mp').value||0
- if(!n||!k){errTxt='Add a name and calories.';draw();return}
- var d=today();S.meals[d]=S.meals[d]||[]
- S.meals[d].push({n:n,k:k,p:p,c:0,f:0,s:slot});errTxt='';save();draw()
-}
 function delMeal(i){S.meals[today()].splice(i,1);editM=-1;save();draw()}
 function setSlot(i){slot=SLOTS[i];draw()}
 function recent(){
@@ -223,20 +218,6 @@ function saveM(i){
  editM=-1;save();draw()
 }
 
-function review(){
- if(revBusy){return}
- var t=totals(),all=S.meals[today()]||[]
- if(!all.length){errTxt='Log something first.';draw();return}
- var list=all.map(function(m){return (m.s||'Snack')+': '+m.n+' - '+m.k+' kcal, '+m.p+' g protein'}).join('\n')
- var q='Review my day.\nFoods:\n'+list+'\nTotals: '+t.k+' kcal, '+t.p+' g protein, '+t.c+' g carbs, '+t.f+' g fat. Target: '+S.set.kcal+' kcal and '+S.set.prot+' g protein. Workout: '+(S.wk[today()]||[]).length+' of '+S.ex.length+' done. Walking: '+(S.walk[today()]||0)+' min. Reply short: 1) how today went in 2 sentences, 2) one thing done well, 3) one thing to adjust tomorrow with a specific food swap or portion tip.'
- var sys='You are a practical weight-loss coach for Nico, 34, male, 5\'5", works night shift 11PM-7AM, eats mostly Filipino food with rice. Be short and specific, Taglish is fine. No medical diagnosis.'
- revBusy=true;errTxt='';draw()
- ask(q,sys).then(function(a){S.rev[today()]=a;save()}).catch(function(e){errTxt=e.message}).then(function(){revBusy=false;draw()})
-}
-function reviewCard(){
- var r=S.rev[today()]
- return '<div class="card"><h2>End-of-day review</h2>'+(r?'<div class="msg a" style="margin-right:0">'+esc(r)+'</div>':'<div class="note" style="margin-bottom:8px">One tap summary of how today went.</div>')+(revBusy?'<p><span class="spin"></span>Reviewing your day...</p>':'')+'<button class="sec full" onclick="review()">'+(r?'Redo review':'Review my day')+'</button></div>'
-}
 
 function vHist(){
  var d=new Date(),out='',days=0,sum=0
@@ -255,7 +236,6 @@ function vHist(){
     if(it.length){body+='<div class="note" style="margin-top:6px"><b>'+sl+'</b></div>'+it.map(function(x){return '<div class="item"><b>'+esc(x.n)+'</b><span>'+fmt(x.k)+' kcal</span></div>'}).join('')}
    })
    body+='<p class="note" style="margin-top:8px">Protein '+fmt(pr)+' g &middot; Workout '+wn+'/'+S.ex.length+' &middot; Walk '+wl+' min'+(wt?' &middot; Weight '+wt.v+' kg':'')+'</p>'
-   if(S.rev[k]){body+='<div class="msg a" style="margin-right:0">'+esc(S.rev[k])+'</div>'}
    var col=!kc?'var(--mute)':kc>S.set.kcal?'var(--bad)':'var(--ok)'
    out+='<details class="card"><summary><b>'+label+'</b><span style="float:right;color:'+col+'">'+fmt(kc)+' kcal</span></summary><div style="margin-top:8px">'+body+'</div></details>'
   }
@@ -336,9 +316,8 @@ function vToday(){
  '<div class="card"><h2>Log food</h2><div>'+chips+'</div>'+
  '<div class="row"><input id="ft" value="'+esc(draft)+'" oninput="draft=this.value" onkeydown="if(event.key===\'Enter\')logText()" placeholder="e.g. 2 white bread, 1 fried egg" style="margin:0"><button onclick="logText()">Log</button></div>'+
  (busy?'<p><span class="spin"></span>'+busy+'</p>':'')+(errTxt?'<div class="err">'+esc(errTxt)+'</div>':'')+
- '<label class="btn sec full" style="margin-top:10px">Scan with camera<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this)"></label></div>'+pend+diary+reviewCard()+
- (rec?'<details class="card"'+(recOpen?' open':'')+' ontoggle="recOpen=this.open"><summary><b>Recent foods</b></summary><div style="margin-top:8px">'+rec+'</div></details>':'')+
- '<details class="card"><summary>Add by hand</summary><div style="margin-top:10px"><input id="mn" placeholder="Food"><div class="row"><input id="mk" type="number" inputmode="numeric" placeholder="kcal"><input id="mp" type="number" inputmode="numeric" placeholder="protein g"></div><button class="sec full" onclick="addManual()">Add to '+slot+'</button></div></details>'
+ '<label class="btn sec full" style="margin-top:10px">Scan with camera<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this)"></label></div>'+pend+diary+
+ (rec?'<details class="card"'+(recOpen?' open':'')+' ontoggle="recOpen=this.open"><summary><b>Recent foods</b></summary><div style="margin-top:8px">'+rec+'</div></details>':'')
 }
 
 function weekWalk(){
@@ -354,6 +333,10 @@ function logWalk(m){
  var d=today()
  S.walk[d]=m===0?0:(S.walk[d]||0)+m
  save();draw()
+}
+function addWalk(){
+ var v=Math.round(+$('#wm').value)
+ if(v>0){logWalk(v)}
 }
 function toggleEdit(){editW=true;draw()}
 function readEdits(){
@@ -387,8 +370,8 @@ function vWork(){
   return '<div class="item"><b'+(i===dow?' style="color:var(--acc)"':'')+'>'+DAYS[i]+'</b><span>'+esc(p)+'</span></div>'
  }).join('')
  return '<h1>Workout</h1><div class="sub">Today: '+esc(S.plan[dow])+' &middot; streak '+streak()+' day'+(streak()===1?'':'s')+'</div>'+
- '<div class="card"><div class="row sp"><h2>Routine</h2><button class="sec" style="padding:6px 14px" onclick="'+(editW?'saveEdits()':'toggleEdit()')+'">'+(editW?'Save':'Edit')+'</button></div>'+list+(editW?'':'<p class="note">'+done.length+' of '+S.ex.length+' done.</p>')+'</div>'+
- '<div class="card"><h2>Walking</h2><div class="big">'+(S.walk[today()]||0)+'<small>min today</small></div><div class="note" style="margin:6px 0 10px">Last 7 days: '+weekWalk()+' min</div><div class="row"><button class="sec" onclick="logWalk(10)">+10</button><button class="sec" onclick="logWalk(20)">+20</button><button class="sec" onclick="logWalk(30)">+30</button><button class="sec" onclick="logWalk(0)">Reset</button></div></div>'+
+ '<div class="card"><div class="row sp"><h2>Routine</h2><button class="sec" style="padding:6px 14px" onclick="'+(editW?'saveEdits()':'toggleEdit()')+'">'+(editW?'Save':'Edit')+'</button></div>'+list+(editW?'':'<p class="note">'+done.length+' of '+S.ex.length+' done. Rest 30 seconds between sets. Go at a pace where you can still talk.</p>')+'</div>'+
+ '<div class="card"><h2>Walking</h2><div class="big">'+(S.walk[today()]||0)+'<small>min today</small></div><div class="note" style="margin:6px 0 10px">Last 7 days: '+weekWalk()+' min</div><div class="row"><button class="sec" onclick="logWalk(10)">+10</button><button class="sec" onclick="logWalk(20)">+20</button><button class="sec" onclick="logWalk(30)">+30</button><button class="sec" onclick="logWalk(0)">Reset</button></div><div class="row" style="margin-top:8px"><input id="wm" type="number" inputmode="numeric" placeholder="Custom minutes" style="margin:0"><button onclick="addWalk()">Add</button></div></div>'+
  '<div class="card"><h2>Week plan</h2>'+wk+(editW?'<p class="note">Type anything: Full workout, 30 min walk, Rest.</p>':'')+'</div>'
 }
 
