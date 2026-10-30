@@ -3,71 +3,89 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#16302c">
+<meta name="theme-color" content="#0a0e13">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Deficit">
 <title>Deficit</title>
 <style>
-:root{--bg:#edf2ef;--card:#fff;--ink:#16302c;--mute:#6b7f7a;--line:#d5e0dc;--acc:#2447f5;--pro:#e0a100;--ok:#1f9d6b;--bad:#c93b3b}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1a18;--card:#172623;--ink:#e6f0ed;--mute:#8aa19b;--line:#27403b;--acc:#6f8bff;--pro:#f2bd2c;--ok:#3fcf94;--bad:#ff7a7a}}
+:root{--bg:#0a0e13;--card:#111821;--ink:#eaf1f8;--mute:#7d8fa3;--line:#1f2b38;--acc:#4cc9f0;--pro:#a78bfa;--ok:#34e08a;--warn:#ffc93c;--bad:#ff5d62;color-scheme:dark}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-main{padding:calc(env(safe-area-inset-top,0px) + 14px) 14px calc(env(safe-area-inset-bottom,0px) + 84px);max-width:560px;margin:0 auto}
-h1{font-size:26px;margin:4px 0 2px;letter-spacing:-.5px}
-h2{font-size:17px;margin:0 0 8px}
+main{padding:calc(env(safe-area-inset-top,0px) + 14px) 14px calc(env(safe-area-inset-bottom,0px) + 92px);max-width:560px;margin:0 auto}
+h1{font-size:28px;font-weight:800;margin:4px 0 2px;letter-spacing:-.03em}
+h2{font-size:16px;font-weight:700;margin:0 0 8px;letter-spacing:-.01em}
 .sub{color:var(--mute);font-size:14px;margin-bottom:14px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
-.big{font-size:44px;font-weight:700;letter-spacing:-1.5px;line-height:1}
-.big small{font-size:15px;font-weight:500;color:var(--mute);letter-spacing:0;margin-left:4px}
-.bar{height:10px;background:var(--line);border-radius:6px;overflow:hidden;margin:10px 0 4px}
+.lab{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:15px;margin-bottom:12px}
+.hero{text-align:center;padding:20px 14px 16px}
+.big{font-size:40px;font-weight:800;letter-spacing:-.04em;line-height:1}
+.big small{font-size:13px;font-weight:600;color:var(--mute);letter-spacing:0;margin-left:5px}
+.ringwrap{position:relative;width:196px;margin:0 auto}
+.ring{width:196px;height:196px;display:block}
+.ringbg{fill:none;stroke:var(--line);stroke-width:11}
+.ringfg{fill:none;stroke-width:11;stroke-linecap:round;transition:stroke-dashoffset .6s ease}
+.ringtick{stroke:var(--ink);stroke-width:2.5;opacity:.75}
+.ringtxt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.rn{font-size:44px;font-weight:800;letter-spacing:-.05em;line-height:1}
+.statline{font-weight:700;font-size:14px;margin-top:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:left;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.grid3 b{font-size:18px;font-weight:800;letter-spacing:-.02em}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.bar{height:8px;background:var(--line);border-radius:6px;overflow:hidden;margin:8px 0 4px}
 .bar i{display:block;height:100%;background:var(--acc);border-radius:6px}
 .bar.p i{background:var(--pro)}
 .row{display:flex;gap:8px;align-items:center}
 .sp{justify-content:space-between}
-input,select,textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;margin-bottom:8px}
-button,.btn{display:inline-block;border:0;border-radius:10px;padding:12px 16px;background:var(--ink);color:var(--bg);font:inherit;font-weight:600;text-align:center}
+input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:inherit;margin-bottom:8px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:-1px}
+button,.btn{display:inline-block;border:0;border-radius:12px;padding:12px 16px;background:var(--acc);color:#04202b;font:inherit;font-weight:700;text-align:center}
 button.sec,.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}
 button.full,.btn.full{width:100%}
-.x{background:none;color:var(--mute);padding:4px 8px;font-size:20px}
-.item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+button:disabled{opacity:.35}
+.x{background:none;color:var(--mute);padding:4px 8px;font-size:20px;border:0}
+.item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .item:last-child{border:0}
-.item b{font-weight:600}
+.item b{font-weight:700}
 .item span{color:var(--mute);font-size:14px}
-.ck{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.ck{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
 .ck:last-child{border:0}
-.ck input{width:24px;height:24px;margin:0}
+.ck input{width:24px;height:24px;margin:0;accent-color:var(--acc)}
 .ck.d div{text-decoration:line-through;color:var(--mute)}
 .ck span{display:block;color:var(--mute);font-size:13px}
-.msg{padding:10px 12px;border-radius:12px;margin-bottom:8px;white-space:pre-wrap;font-size:15px}
-.msg.u{background:var(--acc);color:#fff;margin-left:30px}
+.tip{display:flex;gap:10px;align-items:flex-start;padding:6px 0;font-size:14px}
+.tip i{flex:none;width:9px;height:9px;border-radius:50%;margin-top:6px}
+.msg{padding:10px 12px;border-radius:14px;margin-bottom:8px;white-space:pre-wrap;font-size:15px}
+.msg.u{background:var(--acc);color:#04202b;margin-left:30px;font-weight:600}
 .msg.a{background:var(--bg);border:1px solid var(--line);margin-right:20px}
 .err{color:var(--bad);font-size:14px;margin:6px 0}
 .note{color:var(--mute);font-size:13px}
-#nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
-#nav button{flex:1;background:none;color:var(--mute);border-radius:0;padding:14px 4px;font-size:14px}
-#nav button.on{color:var(--acc);box-shadow:inset 0 3px 0 var(--acc)}
+summary{cursor:pointer}
+#nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:rgba(17,24,33,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+#nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;color:var(--mute);border-radius:0;padding:10px 2px 8px;font-size:11px;font-weight:600}
+#nav svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#nav button.on{color:var(--acc)}
 .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:r .7s linear infinite;vertical-align:-3px;margin-right:6px}
 @keyframes r{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}.ringfg{transition:none}}
 </style>
 </head>
 <body>
 <main id="v"></main>
 <nav id="nav">
-<button data-t="today">Today</button>
-<button data-t="workout">Workout</button>
-<button data-t="coach">Coach</button>
-<button data-t="hist">History</button>
-<button data-t="me">Me</button>
+<button data-t="today"><svg viewBox="0 0 24 24"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z"/></svg>Today</button>
+<button data-t="workout"><svg viewBox="0 0 24 24"><path d="M3 9v6M6 6v12M18 6v12M21 9v6M6 12h12"/></svg>Workout</button>
+<button data-t="coach"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>Coach</button>
+<button data-t="hist"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</button>
+<button data-t="me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 15-5 16 0"/></svg>Me</button>
 </nav>
 <script>
 var $=function(s){return document.querySelector(s)}
 var KEY='deficit_v1'
-var VER=8
+var VER=9
 var S=(function(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}})()
-S.set=S.set||{key:'',model:'claude-sonnet-5-5',kcal:1800,prot:100}
-S.meals=S.meals||{};S.wk=S.wk||{};S.wt=S.wt||[];S.chat=S.chat||[];S.ui=S.ui||{};S.inj=S.inj||{}
+S.set=S.set||{key:'',model:'claude-sonnet-5-5',kcal:1700,kmin:1500,prot:100}
+S.meals=S.meals||{};S.wk=S.wk||{};S.wt=S.wt||[];S.chat=S.chat||[];S.ui=S.ui||{};S.inj=S.inj||{};S.steps=S.steps||{};S.str=S.str||[]
 var save=function(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 var pad=function(n){return String(n).padStart(2,'0')}
 var today=function(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
@@ -227,7 +245,7 @@ function vHist(){
   m.forEach(function(x){kc+=+x.k||0;pr+=+x.p||0})
   var wn=(S.wk[k]||[]).length,wl=S.walk[k]||0
   var wt=S.wt.filter(function(x){return x.d===k})[0]
-  if(m.length||wn||wl||wt||S.inj[k]){
+  if(m.length||wn||wl||wt||S.inj[k]||S.steps[k]){
    if(i<7&&m.length){days++;sum+=kc}
    var label=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})
    var body=''
@@ -235,9 +253,9 @@ function vHist(){
     var it=m.filter(function(x){return (x.s||'Snack')===sl})
     if(it.length){body+='<div class="note" style="margin-top:6px"><b>'+sl+'</b></div>'+it.map(function(x){return '<div class="item"><b>'+esc(x.n)+'</b><span>'+fmt(x.k)+' kcal</span></div>'}).join('')}
    })
-   body+='<p class="note" style="margin-top:8px">Protein '+fmt(pr)+' g &middot; Workout '+wn+'/'+S.ex.length+' &middot; Walk '+wl+' min'+(wt?' &middot; Weight '+wt.v+' kg':'')+(S.inj[k]?' &middot; Injection done':'')+'</p>'
+   body+='<p class="note" style="margin-top:8px">Protein '+fmt(pr)+' g &middot; Workout '+wn+'/'+S.ex.length+' &middot; Walk '+wl+' min'+(S.steps[k]?' &middot; '+fmt(S.steps[k])+' steps':'')+(wt?' &middot; Weight '+wt.v+' kg':'')+(S.inj[k]?' &middot; Injection done':'')+'</p>'
    body+='<button class="sec full" style="margin-top:8px" onclick="openDay(\''+k+'\')">Open this day</button>'
-   var col=!kc?'var(--mute)':kc>S.set.kcal?'var(--bad)':'var(--ok)'
+   var col=!kc?'var(--mute)':stat(kc).c
    out+='<details class="card"><summary><b>'+label+'</b><span style="float:right;color:'+col+'">'+fmt(kc)+' kcal</span></summary><div style="margin-top:8px">'+body+'</div></details>'
   }
   d.setDate(d.getDate()-1)
@@ -284,6 +302,101 @@ function medCard(){
  return '<details class="card"><summary><b>Medication reminders</b></summary><div class="note" style="margin-top:8px;line-height:1.7">&bull; Eat small regular meals even when you are not hungry. Protein first.<br>&bull; Thirst or dry mouth can happen. Sip water through the day and check that your urine stays pale yellow. No need to force huge amounts.<br>&bull; Side effects tend to show in the first days after an injection or a dose change: nausea, bloating, loose stools or constipation, tiredness. Smaller, less oily meals help.<br>&bull; Constipation: more fiber, fluids and walking.<br>&bull; Losing weight very fast also costs muscle. Keep protein up and keep doing your strength moves.<br>&bull; Go easy on alcohol and avoid a heavy meal right before sleep.<br>&bull; Missed dose, a dose change, or lowering and stopping: ask your doctor first, never adjust on your own.<br>&bull; Call your doctor for belly pain that will not go away (especially with vomiting), vomiting or diarrhea that will not stop, dizziness, very dark or very little urine, yellow skin or eyes, or an allergic reaction.</div></details>'
 }
 
+function kmin(){return S.set.kmin==null?1500:S.set.kmin}
+function stat(k){
+ var mx=S.set.kcal,mn=kmin()
+ if(k<mn){return {c:'var(--warn)',t:fmt(mn-k)+' kcal to reach your '+fmt(mn)+' minimum'}}
+ if(k<=mx){return {c:'var(--ok)',t:'On target'}}
+ if(k<=mx+50){return {c:'var(--ok)',t:'At the limit'}}
+ return {c:'var(--bad)',t:'Over by '+fmt(k-mx)+' kcal'}
+}
+function ringCard(t){
+ var mx=S.set.kcal,mn=kmin(),st=stat(t.k),R=54,C=2*Math.PI*R
+ var off=C*(1-Math.min(1,t.k/mx)),ang=2*Math.PI*Math.min(1,mn/mx)-Math.PI/2
+ var x1=70+(R-9)*Math.cos(ang),y1=70+(R-9)*Math.sin(ang),x2=70+(R+9)*Math.cos(ang),y2=70+(R+9)*Math.sin(ang)
+ var left=mx-t.k,pp=Math.min(100,t.p/S.set.prot*100)
+ return '<div class="card hero"><div class="ringwrap"><svg viewBox="0 0 140 140" class="ring"><circle cx="70" cy="70" r="'+R+'" class="ringbg"/><circle cx="70" cy="70" r="'+R+'" class="ringfg" transform="rotate(-90 70 70)" style="stroke:'+st.c+';stroke-dasharray:'+C.toFixed(1)+';stroke-dashoffset:'+off.toFixed(1)+'"/><line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" class="ringtick"/></svg><div class="ringtxt"><div class="rn" style="color:'+st.c+'">'+fmt(Math.abs(left))+'</div><div class="lab">kcal '+(left<0?'over':'left')+'</div></div></div>'+
+ '<div class="statline" style="color:'+st.c+'">'+st.t+'</div>'+
+ '<div class="grid3"><div><div class="lab">Eaten</div><b>'+fmt(t.k)+'</b><span class="note"> / '+fmt(mx)+'</span></div><div><div class="lab">Protein</div><b>'+fmt(t.p)+'</b><span class="note"> / '+fmt(S.set.prot)+' g</span><div class="bar p"><i style="width:'+pp+'%"></i></div></div><div><div class="lab">Carbs / Fat</div><b>'+fmt(t.c)+' / '+fmt(t.f)+'</b><span class="note"> g</span></div></div></div>'
+}
+function nudges(){
+ if(vd){return []}
+ var t=totals(),mx=S.set.kcal,mn=kmin(),h=new Date().getHours(),out=[]
+ var kf=t.k/mx,pf=t.p/S.set.prot,dow=new Date().getDay()
+ if(t.k>0&&t.k<mn&&h>=18){out.push({c:'var(--warn)',t:'Mababa pa ang kain mo ('+fmt(t.k)+' kcal). Kumain ng magaan na may protein para umabot sa '+fmt(mn)+'.'})}
+ if(t.k>mx+50){out.push({c:'var(--bad)',t:'Lampas ka na ng '+fmt(t.k-mx)+' kcal. Ok lang paminsan-minsan, balik lang bukas.'})}
+ if(kf>0.5&&pf<kf-0.25&&t.p<S.set.prot){out.push({c:'var(--warn)',t:'Protein '+fmt(t.p)+' g pa lang, kulang pa '+fmt(S.set.prot-t.p)+' g. Itlog, manok, tuna o tokwa.'})}
+ if(t.p>=S.set.prot){out.push({c:'var(--ok)',t:'Naabot mo na ang protein target. Galing!'})}
+ var plan=(S.plan[dow]||'').toLowerCase(),dn=(S.wk[today()]||[]).length
+ if(plan.indexOf('workout')>-1&&dn<S.ex.length){out.push({c:'var(--acc)',t:'Workout day ngayon: '+dn+' of '+S.ex.length+' done.'})}
+ var sg=S.set.stepGoal||7000,sn=S.steps[today()]||0
+ if(sn>0&&sn<sg&&h>=17){out.push({c:'var(--acc)',t:fmt(sg-sn)+' steps pa para sa goal mo.'})}
+ return out.slice(0,3)
+}
+function nudgeCard(){
+ var n=nudges()
+ if(!n.length){return ''}
+ return '<div class="card"><div class="lab" style="margin-bottom:6px">Smart tips</div>'+n.map(function(x){return '<div class="tip"><i style="background:'+x.c+'"></i><span>'+esc(x.t)+'</span></div>'}).join('')+'</div>'
+}
+function weekSteps(){
+ var n=0,d=new Date()
+ for(var i=0;i<7;i++){
+  var k=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())
+  n+=S.steps[k]||0
+  d.setDate(d.getDate()-1)
+ }
+ return n
+}
+function setSteps(){
+ var el=$('#st')
+ if(el.value===''){return}
+ S.steps[cur()]=Math.max(0,Math.round(+el.value))
+ save();draw()
+}
+function walkCard(){
+ var mins=S.walk[cur()]||0,st=S.steps[cur()]||0,sg=S.set.stepGoal||7000,est=!st&&mins?mins*100:0
+ var sp=Math.min(100,(st||est)/sg*100)
+ return '<div class="card"><h2>Walking</h2><div class="grid2"><div class="big">'+mins+'<small>min'+(vd?'':' today')+'</small></div><div class="big">'+fmt(st||est)+'<small>'+(est?'steps est.':'steps')+'</small></div></div><div class="bar"><i style="width:'+sp+'%"></i></div><div class="note">Goal '+fmt(sg)+' steps &middot; Last 7 days: '+weekWalk()+' min, '+fmt(weekSteps())+' steps</div>'+
+ '<div class="row" style="margin-top:10px"><button class="sec" onclick="logWalk(10)">+10</button><button class="sec" onclick="logWalk(20)">+20</button><button class="sec" onclick="logWalk(30)">+30</button><button class="sec" onclick="logWalk(0)">Reset</button></div>'+
+ '<div class="row" style="margin-top:8px"><input id="wm" type="number" inputmode="numeric" placeholder="Custom minutes" style="margin:0"><button onclick="addWalk()">Add</button></div>'+
+ '<div class="row" style="margin-top:8px"><input id="st" type="number" inputmode="numeric" placeholder="Steps today (from Health app)" style="margin:0"><button onclick="setSteps()">Set</button></div></div>'
+}
+function unitOf(n){return /plank|climber|jack|march|stretch|hold/i.test(n)?'sec':'reps'}
+function addStr(){
+ var n=$('#sxn').value,v=Math.round(+$('#sxv').value),d=cur()
+ if(!n||!(v>0)){return}
+ S.str=S.str.filter(function(x){return !(x.d===d&&x.n===n)})
+ S.str.push({d:d,n:n,v:v})
+ S.str.sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0})
+ save();draw()
+}
+function strTip(n,arr){
+ if(arr.length<2){return 'Log it again next session to see your progress.'}
+ var u=unitOf(n),b=arr[arr.length-1].v,a=arr[arr.length-2].v
+ if(u==='reps'&&b>=15){return 'Easy now. Level up: slower tempo, an extra set, or a tougher variation.'}
+ if(u==='sec'&&b>=45){return 'Strong hold. Add 10 seconds or try a harder variation.'}
+ if(b>a){return 'Up from '+a+'. Keep adding 1-2 per session.'}
+ if(b===a){return 'Same as last time. Aim for 1-2 more or slow the tempo.'}
+ return 'Down a bit. Rest, sleep and food matter. Try again next session.'
+}
+function spark(arr){
+ var v=arr.slice(-6).map(function(x){return x.v})
+ if(v.length<2){return ''}
+ var lo=Math.min.apply(null,v),hi=Math.max.apply(null,v)
+ if(hi===lo){hi=lo+1}
+ var pts=v.map(function(y,i){return (2+i*(56/(v.length-1))).toFixed(1)+','+(23-18*(y-lo)/(hi-lo)).toFixed(1)}).join(' ')
+ return '<svg viewBox="0 0 60 26" width="64" height="28"><polyline points="'+pts+'" style="fill:none;stroke:var(--acc);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"/></svg>'
+}
+function strengthCard(){
+ var opts=S.ex.map(function(e){return '<option>'+esc(e.n)+'</option>'}).join(''),names=[]
+ S.str.forEach(function(x){if(names.indexOf(x.n)<0){names.push(x.n)}})
+ var rows=names.map(function(n){
+  var arr=S.str.filter(function(x){return x.n===n}),b=Math.max.apply(null,arr.map(function(x){return x.v}))
+  return '<div class="item" style="align-items:flex-start"><div style="flex:1"><b>'+esc(n)+'</b><br><span>Last '+arr[arr.length-1].v+' '+unitOf(n)+' &middot; Best '+b+'</span><div class="note" style="margin-top:4px">'+strTip(n,arr)+'</div></div>'+spark(arr)+'</div>'
+ }).join('')
+ return '<div class="card"><h2>Strength progress</h2><div class="note" style="margin-bottom:8px">Log your best set. The app tells you when to level up.</div><select id="sxn">'+opts+'</select><div class="row"><input id="sxv" type="number" inputmode="numeric" placeholder="Best set (reps or seconds)" style="margin:0"><button onclick="addStr()">Log</button></div>'+(rows?'<div style="margin-top:8px">'+rows+'</div>':'')+'</div>'
+}
+
 function logWeight(){
  var v=parseFloat($('#wv').value)
  if(!v){return}
@@ -295,7 +408,9 @@ function logWeight(){
 function saveSet(){
  S.set.key=$('#sk').value.trim()
  S.set.model=$('#sm').value.trim()||'claude-sonnet-5-5'
- S.set.kcal=+$('#sc').value||1800
+ S.set.kcal=+$('#sc').value||1700
+ S.set.kmin=+$('#sn').value||1500
+ S.set.stepGoal=+$('#sg').value||7000
  S.wd=+$('#sw').value
  var sj=$('#sj');if(sj){S.set.injDay=+sj.value}
  S.set.med=$('#sm2').checked
@@ -307,7 +422,7 @@ function sendCoach(){
  var el=$('#q'),q=el.value.trim()
  if(!q||busy){return}
  var t=totals(today()),last=S.wt.slice(-5).map(function(x){return x.d+': '+x.v+'kg'}).join(', ')
- var sys='You are a practical weight-loss coach for Nico, 34, male, 5\'5", works night shift 11PM-7AM Mon-Fri, does bodyweight workouts of 20-30 min. Eats rice with chicken, pork or beef, usually lunch and dinner. Daily target '+S.set.kcal+' kcal and '+S.set.prot+' g protein. Today so far: '+t.k+' kcal, '+t.p+' g protein. Recent weights: '+(last||'none')+'. Workout today: '+(S.wk[today()]||[]).length+'/'+S.ex.length+' done. Walked '+(S.walk[today()]||0)+' min today. Plan: '+S.plan[new Date().getDay()]+'. Be short, specific, Taglish is fine. If asked to plan meals, use Filipino food. No medical diagnosis; for medication questions tell them to see a clinician.'+(S.set.med?' The user takes prescribed weight-loss medication under a doctor, so appetite may be low: encourage regular meals, protein first and steady water. Never give dosing advice.':'')
+ var sys='You are a practical weight-loss coach for Nico, 34, male, 5\'5", works night shift 11PM-7AM Mon-Fri, does bodyweight workouts of 20-30 min. Eats rice with chicken, pork or beef, usually lunch and dinner. Daily range '+kmin()+'-'+S.set.kcal+' kcal (never below 1,400) and '+S.set.prot+' g protein. Today so far: '+t.k+' kcal, '+t.p+' g protein. Recent weights: '+(last||'none')+'. Workout today: '+(S.wk[today()]||[]).length+'/'+S.ex.length+' done. Walked '+(S.walk[today()]||0)+' min today. Plan: '+S.plan[new Date().getDay()]+'. Be short, specific, Taglish is fine. If asked to plan meals, use Filipino food. No medical diagnosis; for medication questions tell them to see a clinician.'+(S.set.med?' The user takes prescribed weight-loss medication under a doctor, so appetite may be low: encourage regular meals, protein first and steady water. Never give dosing advice.':'')
  var hist=S.chat.slice(-8).map(function(m){return {role:m.r,content:m.t}})
  S.chat.push({r:'user',t:q});el.value='';busy='Thinking...';errTxt='';draw()
  ask(q,sys,hist).then(function(a){S.chat.push({r:'assistant',t:a});save()}).catch(function(e){errTxt=e.message;S.chat.pop()}).then(function(){busy='';draw()})
@@ -339,9 +454,7 @@ function vToday(){
   return '<div class="item" onclick="reAdd('+i+')"><div><b>'+esc(m.n)+'</b><br><span>'+fmt(m.k)+' kcal &middot; P '+m.p+'</span></div><b style="color:var(--acc)">+ '+slot+'</b></div>'
  }).join('')
  return dayBar()+injBanner()+weighBanner()+
- '<div class="card"><div class="big" style="color:'+(left<0?'var(--bad)':'var(--ink)')+'">'+fmt(Math.abs(left))+'<small>kcal '+(left<0?'over':'left')+'</small></div>'+
- '<div class="bar"><i style="width:'+pk+'%"></i></div><div class="note">'+fmt(t.k)+' of '+fmt(S.set.kcal)+' kcal</div>'+
- '<div class="bar p"><i style="width:'+pp+'%"></i></div><div class="note">Protein '+fmt(t.p)+' of '+fmt(S.set.prot)+' g &middot; Carbs '+fmt(t.c)+' g &middot; Fat '+fmt(t.f)+' g</div></div>'+
+ ringCard(t)+nudgeCard()+
  '<div class="card"><h2>Log food</h2><div>'+chips+'</div>'+
  '<div class="row"><input id="ft" value="'+esc(draft)+'" oninput="draft=this.value" onkeydown="if(event.key===\'Enter\')logText()" placeholder="e.g. 2 white bread, 1 fried egg" style="margin:0"><button onclick="logText()">Log</button></div>'+
  (busy?'<p><span class="spin"></span>'+busy+'</p>':'')+(errTxt?'<div class="err">'+esc(errTxt)+'</div>':'')+
@@ -401,7 +514,7 @@ function vWork(){
  }).join('')
  return dayBar('Workout')+'<div class="sub">Plan: '+esc(S.plan[dow])+' &middot; streak '+streak()+' day'+(streak()===1?'':'s')+'</div>'+
  '<div class="card"><div class="row sp"><h2>Routine</h2><button class="sec" style="padding:6px 14px" onclick="'+(editW?'saveEdits()':'toggleEdit()')+'">'+(editW?'Save':'Edit')+'</button></div>'+list+(editW?'':'<p class="note">'+done.length+' of '+S.ex.length+' done. Rest 30 seconds between sets. Go at a pace where you can still talk.</p>')+'</div>'+
- '<div class="card"><h2>Walking</h2><div class="big">'+(S.walk[cur()]||0)+'<small>min'+(vd?'':' today')+'</small></div><div class="note" style="margin:6px 0 10px">Last 7 days: '+weekWalk()+' min</div><div class="row"><button class="sec" onclick="logWalk(10)">+10</button><button class="sec" onclick="logWalk(20)">+20</button><button class="sec" onclick="logWalk(30)">+30</button><button class="sec" onclick="logWalk(0)">Reset</button></div><div class="row" style="margin-top:8px"><input id="wm" type="number" inputmode="numeric" placeholder="Custom minutes" style="margin:0"><button onclick="addWalk()">Add</button></div></div>'+
+ walkCard()+strengthCard()+
  '<div class="card"><h2>Week plan</h2>'+wk+'<p class="note">'+(editW?'Type anything: Workout, Walk 30 min, Rest day.':'Tap Edit at the top to change your workout and rest days.')+'</p>'+'</div>'
 }
 
@@ -419,7 +532,7 @@ function vMe(){
  var w=S.wt.slice(-8).reverse().map(function(x){return '<div class="item"><b>'+x.v+' kg</b><span>'+x.d+'</span></div>'}).join('')||'<div class="note">No weigh-ins yet.</div>'
  return '<h1>Me</h1><div class="sub">34 &middot; 5\'5" &middot; night shift</div>'+
  '<div class="card"><h2>Weight</h2><div class="row"><input id="wv" type="number" step="0.1" inputmode="decimal" placeholder="kg today"><button style="margin-bottom:8px" onclick="logWeight()">Log</button></div>'+weightChart()+w+'<p class="note">Weigh once a week on your weigh-in day, same time and same conditions.</p></div>'+
- '<div class="card"><h2>Targets and AI</h2><label class="note">Calories per day</label><input id="sc" type="number" value="'+S.set.kcal+'"><label class="note">Protein g per day</label><input id="sp" type="number" value="'+S.set.prot+'">'+
+ '<div class="card"><h2>Targets and AI</h2><label class="note">Minimum calories per day</label><input id="sn" type="number" value="'+kmin()+'"><label class="note">Maximum calories per day</label><input id="sc" type="number" value="'+S.set.kcal+'"><label class="note">Protein g per day</label><input id="sp" type="number" value="'+S.set.prot+'"><label class="note">Daily steps goal</label><input id="sg" type="number" value="'+(S.set.stepGoal||7000)+'">'+
  '<label class="ck" style="padding:6px 0 12px"><input id="sm2" type="checkbox" '+(S.set.med?'checked':'')+'><div>I take prescribed weight-loss medication<span>Shows reminders and tells the Coach. Ask your doctor for your own targets.</span></div></label>'+
  (S.set.med?'<label class="note">Injection day</label><select id="sj">'+DAYS.map(function(d,i){return '<option value="'+i+'"'+(i===(S.set.injDay==null?5:S.set.injDay)?' selected':'')+'>'+d+'</option>'}).join('')+'</select>':'')+
  '<label class="note">Weigh-in day</label><select id="sw">'+DAYS.map(function(d,i){return '<option value="'+i+'"'+(i===S.wd?' selected':'')+'>'+d+'</option>'}).join('')+'</select>'+
