@@ -72,6 +72,8 @@ summary{cursor:pointer}
 .chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0;flex:none}
 .chips button{white-space:nowrap;flex:none;padding:8px 12px;font-size:14px}
 .composer{flex:none}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;text-align:center}
+.grid4 b{font-size:16px;font-weight:800}
 @media(prefers-reduced-motion:reduce){.spin{animation:none}.ringfg{transition:none}}
 </style>
 </head>
@@ -87,7 +89,7 @@ summary{cursor:pointer}
 <script>
 var $=function(s){return document.querySelector(s)}
 var KEY='deficit_v1'
-var VER=11
+var VER=12
 var S=(function(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}})()
 S.set=S.set||{key:'',model:'claude-sonnet-5-5',kcal:1700,kmin:1500,prot:100}
 S.meals=S.meals||{};S.wk=S.wk||{};S.wt=S.wt||[];S.chat=S.chat||[];S.ui=S.ui||{};S.inj=S.inj||{};S.steps=S.steps||{};S.fav=S.fav||[]
@@ -265,7 +267,7 @@ function vHist(){
   }
   d.setDate(d.getDate()-1)
  }
- return '<h1>History</h1><div class="sub">'+(days?'7-day average: '+fmt(Math.round(sum/days))+' kcal ('+days+' day'+(days>1?'s':'')+' logged)':'Last 14 days')+'</div>'+weekCard()+(out||'<div class="card note">Nothing logged yet.</div>')
+ return '<h1>History</h1><div class="sub">'+(days?'7-day average: '+fmt(Math.round(sum/days))+' kcal ('+days+' day'+(days>1?'s':'')+' logged)':'Last 14 days')+'</div>'+weekCard()+weekProtCard()+(out||'<div class="card note">Nothing logged yet.</div>')
 }
 
 function weightChart(){
@@ -330,8 +332,8 @@ function nudges(){
  var kf=t.k/mx,pf=t.p/S.set.prot,dow=new Date().getDay()
  if(t.k>0&&t.k<mn&&h>=18){out.push({c:'var(--warn)',t:'Mababa pa ang kain mo ('+fmt(t.k)+' kcal). Kumain ng magaan na may protein para umabot sa '+fmt(mn)+'.'})}
  if(t.k>mx+50){out.push({c:'var(--bad)',t:'Lampas ka na ng '+fmt(t.k-mx)+' kcal. Ok lang paminsan-minsan, balik lang bukas.'})}
- if(kf>0.5&&pf<kf-0.25&&t.p<S.set.prot){out.push({c:'var(--warn)',t:'Protein '+fmt(t.p)+' g pa lang, kulang pa '+fmt(S.set.prot-t.p)+' g. Itlog, manok, tuna o tokwa.'})}
- if(t.p>=S.set.prot){out.push({c:'var(--ok)',t:'Naabot mo na ang protein target. Galing!'})}
+ var pw=proteinWarn()
+ if(pw.length){out.push({c:'var(--warn)',t:pw[0]})}
  var plan=(S.plan[dow]||'').toLowerCase(),dn=(S.wk[today()]||[]).length
  if(plan.indexOf('workout')>-1&&dn<S.ex.length){out.push({c:'var(--acc)',t:'Workout day ngayon: '+dn+' of '+S.ex.length+' done.'})}
  var sg=S.set.stepGoal||7000,sn=S.steps[today()]||0
@@ -426,6 +428,63 @@ function emptyCard(){
 }
 function scaleForm(f){['k','p','c','f'].forEach(function(x){var el=$('#en_'+x);el.value=Math.round((+el.value||0)*f)})}
 
+var IDEAS=[['2 itlog','2 boiled eggs'],['1 lata tuna','1 small can tuna in oil, drained'],['100 g manok','100 g grilled chicken breast'],['1 scoop whey','1 scoop whey protein mixed with water'],['1 baso gatas','1 cup fresh milk']]
+var scrollPend=false
+function ideaLog(i){draft=IDEAS[i][1];scrollPend=true;logText()}
+function protWeek(){
+ var days=[],d=new Date()
+ for(var i=0;i<7;i++){days.unshift({k:keyOf(d),w:d.toLocaleDateString('en-US',{weekday:'narrow'}),v:0,l:false});d.setDate(d.getDate()-1)}
+ days.forEach(function(x){
+  var m=S.meals[x.k]||[]
+  x.l=m.length>0
+  m.forEach(function(y){x.v+=+y.p||0})
+ })
+ return days
+}
+function proteinWarn(){
+ var out=[],tg=S.set.prot,done=protWeek().slice(0,6).filter(function(x){return x.l}),last=done.slice(-3)
+ if(last.length===3&&last.every(function(x){return x.v<tg*0.8})){out.push('3 araw nang kulang ang protein mo. Mataas ang tsansang mawalan ng muscle. Unahin ang protein sa bawat kain.')}
+ var cut=new Date();cut.setDate(cut.getDate()-21)
+ var ws=S.wt.filter(function(x){return x.d>=keyOf(cut)})
+ if(ws.length>=2){
+  var a=ws[0],b=ws[ws.length-1],dd=(new Date(b.d)-new Date(a.d))/86400000
+  if(dd>=5){
+   var rate=(a.v-b.v)/dd*7
+   if(rate>b.v*0.01){out.push('Mabilis ang pagbaba ng timbang mo (mga '+rate.toFixed(1)+' kg kada linggo). Kapag kulang ang protein, muscle ang unang nawawala. Pag-usapan sa doktor kung masyado nang mabilis.')}
+  }
+ }
+ return out
+}
+function proteinCard(t){
+ var tg=S.set.prot,left=tg-t.p,pp=Math.min(100,t.p/tg*100),all=S.meals[cur()]||[]
+ var per=SLOTS.map(function(s){
+  var n=0
+  all.forEach(function(m){if((m.s||'Snack')===s){n+=+m.p||0}})
+  return '<div><div class="lab">'+s.slice(0,5)+'</div><b>'+fmt(n)+'</b></div>'
+ }).join('')
+ var sugg=''
+ if(left>0){
+  var fav=S.fav.map(function(f,i){return {f:f,i:i}}).filter(function(x){return x.f.p>=15}).sort(function(a,b){return b.f.p-a.f.p}).slice(0,3)
+  if(fav.length){sugg+='<div class="lab" style="margin-top:12px">Mula sa My foods</div><div class="chips">'+fav.map(function(x){return '<button class="sec" onclick="favAdd('+x.i+')">+ '+esc(x.f.n)+' &middot; '+x.f.p+' g</button>'}).join('')+'</div>'}
+  sugg+='<div class="lab" style="margin-top:8px">Madaling protein</div><div class="chips">'+IDEAS.map(function(x,i){return '<button class="sec" onclick="ideaLog('+i+')">'+x[0]+'</button>'}).join('')+'</div>'
+ }
+ return '<div class="card"><div class="row sp"><h2 style="margin:0">Protein</h2><b style="color:'+(left>0?'var(--pro)':'var(--ok)')+'">'+(left>0?'Kulang pa '+fmt(left)+' g':'Naabot na!')+'</b></div><div class="bar p"><i style="width:'+pp+'%"></i></div><div class="note">'+fmt(t.p)+' of '+fmt(tg)+' g &middot; 25-35 g kada kain</div><div class="grid4">'+per+'</div>'+sugg+'</div>'
+}
+function weekProtCard(){
+ var days=protWeek(),tg=S.set.prot,top=Math.max(tg+20,Math.max.apply(null,days.map(function(x){return x.v})))
+ var H=100,W=300,bw=28,gap=(W-7*bw)/8
+ var bars=days.map(function(x,i){
+  var h=x.v?Math.max(3,H*x.v/top):0,xx=gap+i*(bw+gap),c=!x.v?'var(--line)':x.v>=tg?'var(--ok)':x.v>=tg*0.8?'var(--pro)':'var(--warn)'
+  return '<rect x="'+xx.toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+bw+'" height="'+h.toFixed(1)+'" rx="5" style="fill:'+c+'"/><text x="'+(xx+bw/2).toFixed(1)+'" y="'+(H+14)+'" text-anchor="middle" font-size="10" style="fill:var(--mute)">'+x.w+'</text>'
+ }).join('')
+ var ty=(H-H*tg/top).toFixed(1)
+ var done=days.slice(0,6).filter(function(x){return x.l}),sum=0
+ done.forEach(function(x){sum+=x.v})
+ var avg=done.length?Math.round(sum/done.length):0,hit=done.filter(function(x){return x.v>=tg}).length
+ var warns=proteinWarn().map(function(w){return '<div class="tip"><i style="background:var(--warn)"></i><span>'+esc(w)+'</span></div>'}).join('')
+ return '<div class="card"><div class="lab" style="margin-bottom:8px">Protein this week</div><svg viewBox="0 0 300 116" style="width:100%;height:auto"><line x1="0" x2="300" y1="'+ty+'" y2="'+ty+'" stroke-dasharray="3 4" style="stroke:var(--mute);opacity:.55"/>'+bars+'</svg><div class="grid3"><div><div class="lab">Average</div><b>'+fmt(avg)+' g</b></div><div><div class="lab">Days hit</div><b>'+hit+' / '+done.length+'</b></div><div><div class="lab">Of target</div><b>'+Math.round(avg/tg*100)+'%</b></div></div><div class="note" style="margin-top:6px">Stats use completed days, not today.</div>'+(warns?'<div style="margin-top:8px">'+warns+'</div>':'')+'</div>'
+}
+
 function logWeight(){
  var v=parseFloat($('#wv').value)
  if(!v){return}
@@ -477,13 +536,13 @@ function vToday(){
  }).join('')
  var pend=''
  if(pending){
-  pend='<div class="card"><h2>AI estimate</h2>'+pending.items.map(function(i){return '<div class="item"><div><b>'+esc(i.name)+'</b><br><span>P '+Math.round(i.protein)+' &middot; C '+Math.round(i.carbs||0)+' &middot; F '+Math.round(i.fat||0)+'</span></div><b>'+fmt(Math.round(i.kcal))+' kcal</b></div>'}).join('')+(pending.note?'<p class="note">'+esc(pending.note)+'</p>':'')+'<div class="row"><button class="full" onclick="addPending()">Add to '+slot+'</button><button class="sec" onclick="pending=null;draw()">Skip</button></div></div>'
+  pend='<div class="card" id="pend"><h2>AI estimate</h2>'+pending.items.map(function(i){return '<div class="item"><div><b>'+esc(i.name)+'</b><br><span>P '+Math.round(i.protein)+' &middot; C '+Math.round(i.carbs||0)+' &middot; F '+Math.round(i.fat||0)+'</span></div><b>'+fmt(Math.round(i.kcal))+' kcal</b></div>'}).join('')+(pending.note?'<p class="note">'+esc(pending.note)+'</p>':'')+'<div class="row"><button class="full" onclick="addPending()">Add to '+slot+'</button><button class="sec" onclick="pending=null;draw()">Skip</button></div></div>'
  }
  var rec=recent().map(function(m,i){
   return '<div class="item" onclick="reAdd('+i+')"><div><b>'+esc(m.n)+'</b><br><span>'+fmt(m.k)+' kcal &middot; P '+m.p+'</span></div><b style="color:var(--acc)">+ '+slot+'</b></div>'
  }).join('')
  return dayBar()+injBanner()+weighBanner()+
- ringCard(t)+nudgeCard()+
+ ringCard(t)+proteinCard(t)+nudgeCard()+
  '<div class="card"><h2>Log food</h2><div>'+chips+'</div>'+
  '<div class="row"><input id="ft" value="'+esc(draft)+'" oninput="draft=this.value" onkeydown="if(event.key===\'Enter\')logText()" placeholder="e.g. 2 white bread, 1 fried egg" style="margin:0"><button onclick="logText()">Log</button></div>'+
  (busy?'<p><span class="spin"></span>'+busy+'</p>':'')+(errTxt?'<div class="err">'+esc(errTxt)+'</div>':'')+
@@ -585,6 +644,7 @@ function draw(){
  document.querySelectorAll('#nav button').forEach(function(b){b.className=b.dataset.t===tab?'on':''})
  if(keep&&$('#'+keep)&&val){$('#'+keep).value=val}
  if(tab==='coach'){scrollChat()}
+ if(scrollPend&&pending&&$('#pend')){if($('#pend').scrollIntoView){$('#pend').scrollIntoView({block:'center'})}scrollPend=false}
 }
 document.querySelectorAll('#nav button').forEach(function(b){b.onclick=function(){tab=b.dataset.t;errTxt='';draw();window.scrollTo(0,0)}})
 draw()
