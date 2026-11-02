@@ -67,6 +67,11 @@ summary{cursor:pointer}
 #nav button.on{color:var(--acc)}
 .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:r .7s linear infinite;vertical-align:-3px;margin-right:6px}
 @keyframes r{to{transform:rotate(360deg)}}
+.coach{display:flex;flex-direction:column;height:calc(100vh - 112px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));height:calc(100dvh - 112px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+.chat{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;position:relative;padding-bottom:6px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0;flex:none}
+.chips button{white-space:nowrap;flex:none;padding:8px 12px;font-size:14px}
+.composer{flex:none}
 @media(prefers-reduced-motion:reduce){.spin{animation:none}.ringfg{transition:none}}
 </style>
 </head>
@@ -82,10 +87,10 @@ summary{cursor:pointer}
 <script>
 var $=function(s){return document.querySelector(s)}
 var KEY='deficit_v1'
-var VER=9
+var VER=11
 var S=(function(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}})()
 S.set=S.set||{key:'',model:'claude-sonnet-5-5',kcal:1700,kmin:1500,prot:100}
-S.meals=S.meals||{};S.wk=S.wk||{};S.wt=S.wt||[];S.chat=S.chat||[];S.ui=S.ui||{};S.inj=S.inj||{};S.steps=S.steps||{};S.str=S.str||[]
+S.meals=S.meals||{};S.wk=S.wk||{};S.wt=S.wt||[];S.chat=S.chat||[];S.ui=S.ui||{};S.inj=S.inj||{};S.steps=S.steps||{};S.fav=S.fav||[]
 var save=function(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 var pad=function(n){return String(n).padStart(2,'0')}
 var today=function(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
@@ -222,7 +227,7 @@ function restoreBackup(){
 
 function editForm(m,i){
  var opts=SLOTS.map(function(x){return '<option'+(x===(m.s||'Snack')?' selected':'')+'>'+x+'</option>'}).join('')
- return '<div style="padding:8px 0;border-bottom:1px solid var(--line)"><input id="en_n" value="'+esc(m.n)+'"><div class="row"><input id="en_k" type="number" inputmode="numeric" value="'+(m.k||0)+'" placeholder="kcal"><input id="en_p" type="number" inputmode="numeric" value="'+(m.p||0)+'" placeholder="protein"></div><div class="row"><input id="en_c" type="number" inputmode="numeric" value="'+(m.c||0)+'" placeholder="carbs"><input id="en_f" type="number" inputmode="numeric" value="'+(m.f||0)+'" placeholder="fat"></div><select id="en_s">'+opts+'</select><div class="row"><button class="full" onclick="saveM('+i+')">Save</button><button class="sec" onclick="editM=-1;draw()">Cancel</button></div></div>'
+ return '<div style="padding:8px 0;border-bottom:1px solid var(--line)"><input id="en_n" value="'+esc(m.n)+'"><div class="row"><input id="en_k" type="number" inputmode="numeric" value="'+(m.k||0)+'" placeholder="kcal"><input id="en_p" type="number" inputmode="numeric" value="'+(m.p||0)+'" placeholder="protein"></div><div class="row"><input id="en_c" type="number" inputmode="numeric" value="'+(m.c||0)+'" placeholder="carbs"><input id="en_f" type="number" inputmode="numeric" value="'+(m.f||0)+'" placeholder="fat"></div><select id="en_s">'+opts+'</select><div class="row" style="margin-bottom:8px"><button class="sec" onclick="scaleForm(0.5)">&frac12;x</button><button class="sec" onclick="scaleForm(1.5)">1.5x</button><button class="sec" onclick="scaleForm(2)">2x</button></div><div class="row"><button class="full" onclick="saveM('+i+')">Save</button><button class="sec" onclick="editM=-1;draw()">Cancel</button></div></div>'
 }
 function startEditM(i){editM=i;draw()}
 function saveM(i){
@@ -260,7 +265,7 @@ function vHist(){
   }
   d.setDate(d.getDate()-1)
  }
- return '<h1>History</h1><div class="sub">'+(days?'7-day average: '+fmt(Math.round(sum/days))+' kcal ('+days+' day'+(days>1?'s':'')+' logged)':'Last 14 days')+'</div>'+(out||'<div class="card note">Nothing logged yet.</div>')
+ return '<h1>History</h1><div class="sub">'+(days?'7-day average: '+fmt(Math.round(sum/days))+' kcal ('+days+' day'+(days>1?'s':'')+' logged)':'Last 14 days')+'</div>'+weekCard()+(out||'<div class="card note">Nothing logged yet.</div>')
 }
 
 function weightChart(){
@@ -361,41 +366,65 @@ function walkCard(){
  '<div class="row" style="margin-top:8px"><input id="wm" type="number" inputmode="numeric" placeholder="Custom minutes" style="margin:0"><button onclick="addWalk()">Add</button></div>'+
  '<div class="row" style="margin-top:8px"><input id="st" type="number" inputmode="numeric" placeholder="Steps today (from Health app)" style="margin:0"><button onclick="setSteps()">Set</button></div></div>'
 }
-function unitOf(n){return /plank|climber|jack|march|stretch|hold/i.test(n)?'sec':'reps'}
-function addStr(){
- var n=$('#sxn').value,v=Math.round(+$('#sxv').value),d=cur()
- if(!n||!(v>0)){return}
- S.str=S.str.filter(function(x){return !(x.d===d&&x.n===n)})
- S.str.push({d:d,n:n,v:v})
- S.str.sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0})
+function keyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function dayKcal(k){var n=0;(S.meals[k]||[]).forEach(function(m){n+=+m.k||0});return n}
+function rangeStreak(){
+ var d=new Date(),n=0
+ for(var i=0;i<60;i++){
+  var v=dayKcal(keyOf(d)),ok=v>=kmin()&&v<=S.set.kcal+50
+  if(ok){n++}else if(i>0){break}
+  d.setDate(d.getDate()-1)
+ }
+ return n
+}
+function weekCard(){
+ var days=[],d=new Date()
+ for(var i=0;i<7;i++){days.unshift({k:keyOf(d),w:d.toLocaleDateString('en-US',{weekday:'narrow'}),v:0});d.setDate(d.getDate()-1)}
+ days.forEach(function(x){x.v=dayKcal(x.k)})
+ var mx=S.set.kcal,mn=kmin(),top=Math.max(mx+250,Math.max.apply(null,days.map(function(x){return x.v})))
+ var H=100,W=300,bw=28,gap=(W-7*bw)/8
+ var bars=days.map(function(x,i){
+  var h=x.v?Math.max(3,H*x.v/top):0,xx=gap+i*(bw+gap)
+  return '<rect x="'+xx.toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+bw+'" height="'+h.toFixed(1)+'" rx="5" style="fill:'+(x.v?stat(x.v).c:'var(--line)')+'"/><text x="'+(xx+bw/2).toFixed(1)+'" y="'+(H+14)+'" text-anchor="middle" font-size="10" style="fill:var(--mute)">'+x.w+'</text>'
+ }).join('')
+ var ly=function(v){return (H-H*v/top).toFixed(1)}
+ var lines='<line x1="0" x2="300" y1="'+ly(mn)+'" y2="'+ly(mn)+'" stroke-dasharray="3 4" style="stroke:var(--mute);opacity:.55"/><line x1="0" x2="300" y1="'+ly(mx)+'" y2="'+ly(mx)+'" stroke-dasharray="3 4" style="stroke:var(--mute);opacity:.55"/>'
+ var logged=days.filter(function(x){return x.v>0}),sum=0
+ logged.forEach(function(x){sum+=x.v})
+ var inr=logged.filter(function(x){return x.v>=mn&&x.v<=mx+50}).length
+ return '<div class="card"><div class="lab" style="margin-bottom:8px">Last 7 days</div><svg viewBox="0 0 300 116" style="width:100%;height:auto">'+lines+bars+'</svg><div class="grid3"><div><div class="lab">Average</div><b>'+fmt(logged.length?Math.round(sum/logged.length):0)+'</b></div><div><div class="lab">In range</div><b>'+inr+' / '+logged.length+'</b></div><div><div class="lab">Streak</div><b>'+rangeStreak()+' d</b></div></div></div>'
+}
+function isFav(m){return S.fav.some(function(f){return f.n.toLowerCase()===m.n.toLowerCase()})}
+function toggleFav(i){
+ var m=S.meals[cur()][i]
+ if(isFav(m)){S.fav=S.fav.filter(function(f){return f.n.toLowerCase()!==m.n.toLowerCase()})}
+ else{S.fav.push({n:m.n,k:m.k,p:m.p,c:m.c||0,f:m.f||0})}
  save();draw()
 }
-function strTip(n,arr){
- if(arr.length<2){return 'Log it again next session to see your progress.'}
- var u=unitOf(n),b=arr[arr.length-1].v,a=arr[arr.length-2].v
- if(u==='reps'&&b>=15){return 'Easy now. Level up: slower tempo, an extra set, or a tougher variation.'}
- if(u==='sec'&&b>=45){return 'Strong hold. Add 10 seconds or try a harder variation.'}
- if(b>a){return 'Up from '+a+'. Keep adding 1-2 per session.'}
- if(b===a){return 'Same as last time. Aim for 1-2 more or slow the tempo.'}
- return 'Down a bit. Rest, sleep and food matter. Try again next session.'
+function favAdd(i){
+ var f=S.fav[i],d=cur()
+ S.meals[d]=S.meals[d]||[]
+ S.meals[d].push({n:f.n,k:f.k,p:f.p,c:f.c,f:f.f,s:slot});save();draw()
 }
-function spark(arr){
- var v=arr.slice(-6).map(function(x){return x.v})
- if(v.length<2){return ''}
- var lo=Math.min.apply(null,v),hi=Math.max.apply(null,v)
- if(hi===lo){hi=lo+1}
- var pts=v.map(function(y,i){return (2+i*(56/(v.length-1))).toFixed(1)+','+(23-18*(y-lo)/(hi-lo)).toFixed(1)}).join(' ')
- return '<svg viewBox="0 0 60 26" width="64" height="28"><polyline points="'+pts+'" style="fill:none;stroke:var(--acc);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"/></svg>'
+function delFav(i){S.fav.splice(i,1);save();draw()}
+function favCard(){
+ if(!S.fav.length){return ''}
+ var rows=S.fav.map(function(f,i){return '<div class="item" onclick="favAdd('+i+')"><div><b>'+esc(f.n)+'</b><br><span>'+fmt(f.k)+' kcal &middot; P '+f.p+'</span></div><div class="row"><b style="color:var(--acc)">+ '+slot+'</b><button class="x" onclick="event.stopPropagation();delFav('+i+')">&times;</button></div></div>'}).join('')
+ return '<details class="card"'+(S.ui.fav?' open':'')+' ontoggle="S.ui.fav=this.open;save()"><summary><b>My foods</b><span class="note" style="float:right">'+S.fav.length+' saved</span></summary><div style="margin-top:8px">'+rows+'</div></details>'
 }
-function strengthCard(){
- var opts=S.ex.map(function(e){return '<option>'+esc(e.n)+'</option>'}).join(''),names=[]
- S.str.forEach(function(x){if(names.indexOf(x.n)<0){names.push(x.n)}})
- var rows=names.map(function(n){
-  var arr=S.str.filter(function(x){return x.n===n}),b=Math.max.apply(null,arr.map(function(x){return x.v}))
-  return '<div class="item" style="align-items:flex-start"><div style="flex:1"><b>'+esc(n)+'</b><br><span>Last '+arr[arr.length-1].v+' '+unitOf(n)+' &middot; Best '+b+'</span><div class="note" style="margin-top:4px">'+strTip(n,arr)+'</div></div>'+spark(arr)+'</div>'
- }).join('')
- return '<div class="card"><h2>Strength progress</h2><div class="note" style="margin-bottom:8px">Log your best set. The app tells you when to level up.</div><select id="sxn">'+opts+'</select><div class="row"><input id="sxv" type="number" inputmode="numeric" placeholder="Best set (reps or seconds)" style="margin:0"><button onclick="addStr()">Log</button></div>'+(rows?'<div style="margin-top:8px">'+rows+'</div>':'')+'</div>'
+function copyPrev(){
+ var d=curDate();d.setDate(d.getDate()-1)
+ var src=S.meals[keyOf(d)]||[]
+ S.meals[cur()]=src.map(function(m){return {n:m.n,k:m.k,p:m.p,c:m.c||0,f:m.f||0,s:m.s}})
+ save();draw()
 }
+function emptyCard(){
+ if((S.meals[cur()]||[]).length){return ''}
+ var d=curDate();d.setDate(d.getDate()-1)
+ if(!(S.meals[keyOf(d)]||[]).length){return ''}
+ return '<div class="card"><div class="note" style="margin-bottom:8px">Nothing logged yet for this day.</div><button class="sec full" onclick="copyPrev()">Copy meals from the day before</button></div>'
+}
+function scaleForm(f){['k','p','c','f'].forEach(function(x){var el=$('#en_'+x);el.value=Math.round((+el.value||0)*f)})}
 
 function logWeight(){
  var v=parseFloat($('#wv').value)
@@ -438,7 +467,7 @@ function vToday(){
    if((m.s||'Snack')!==s){return}
    sk+=+m.k||0;cnt++
    if(i===editM){rows+=editForm(m,i);return}
-   rows+='<div class="item"><div onclick="startEditM('+i+')" style="flex:1"><b>'+esc(m.n)+'</b><br><span>'+fmt(m.k)+' kcal &middot; P '+m.p+' &middot; C '+(m.c||0)+' &middot; F '+(m.f||0)+'</span></div><button class="x" onclick="delMeal('+i+')">&times;</button></div>'
+   rows+='<div class="item"><div onclick="startEditM('+i+')" style="flex:1"><b>'+esc(m.n)+'</b><br><span>'+fmt(m.k)+' kcal &middot; P '+m.p+' &middot; C '+(m.c||0)+' &middot; F '+(m.f||0)+'</span></div><button class="x" onclick="toggleFav('+i+')">'+(isFav(m)?'&#9733;':'&#9734;')+'</button><button class="x" onclick="delMeal('+i+')">&times;</button></div>'
   })
   var op=S.ui[s]===undefined?s===slot:S.ui[s]
   return '<details class="card"'+(op?' open':'')+' ontoggle="S.ui.'+s+'=this.open;save()"><summary><b>'+s+'</b><span class="note" style="float:right">'+fmt(sk)+' kcal'+(cnt?' &middot; '+cnt+' item'+(cnt>1?'s':''):'')+'</span></summary><div style="margin-top:8px">'+(rows||'<div class="note">Nothing yet.</div>')+'</div></details>'
@@ -458,7 +487,7 @@ function vToday(){
  '<div class="card"><h2>Log food</h2><div>'+chips+'</div>'+
  '<div class="row"><input id="ft" value="'+esc(draft)+'" oninput="draft=this.value" onkeydown="if(event.key===\'Enter\')logText()" placeholder="e.g. 2 white bread, 1 fried egg" style="margin:0"><button onclick="logText()">Log</button></div>'+
  (busy?'<p><span class="spin"></span>'+busy+'</p>':'')+(errTxt?'<div class="err">'+esc(errTxt)+'</div>':'')+
- '<label class="btn sec full" style="margin-top:10px">Scan with camera<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this)"></label></div>'+pend+diary+medCard()+
+ '<label class="btn sec full" style="margin-top:10px">Scan with camera<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this)"></label></div>'+pend+emptyCard()+diary+favCard()+medCard()+
  (rec?'<details class="card"'+(recOpen?' open':'')+' ontoggle="recOpen=this.open"><summary><b>Recent foods</b></summary><div style="margin-top:8px">'+rec+'</div></details>':'')
 }
 
@@ -514,18 +543,27 @@ function vWork(){
  }).join('')
  return dayBar('Workout')+'<div class="sub">Plan: '+esc(S.plan[dow])+' &middot; streak '+streak()+' day'+(streak()===1?'':'s')+'</div>'+
  '<div class="card"><div class="row sp"><h2>Routine</h2><button class="sec" style="padding:6px 14px" onclick="'+(editW?'saveEdits()':'toggleEdit()')+'">'+(editW?'Save':'Edit')+'</button></div>'+list+(editW?'':'<p class="note">'+done.length+' of '+S.ex.length+' done. Rest 30 seconds between sets. Go at a pace where you can still talk.</p>')+'</div>'+
- walkCard()+strengthCard()+
+ walkCard()+
  '<div class="card"><h2>Week plan</h2>'+wk+'<p class="note">'+(editW?'Type anything: Workout, Walk 30 min, Rest day.':'Tap Edit at the top to change your workout and rest days.')+'</p>'+'</div>'
 }
 
+function fmtMsg(t){
+ return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/^- /gm,'&bull; ')
+}
+function scrollChat(){
+ var c=$('#chat')
+ if(!c){return}
+ var last=c.lastElementChild
+ if(last&&last.classList.contains('a')){c.scrollTop=last.offsetTop-6}else{c.scrollTop=c.scrollHeight}
+}
 function vCoach(){
- var msgs=S.chat.map(function(m){return '<div class="msg '+(m.r==='user'?'u':'a')+'">'+esc(m.t)+'</div>'}).join('')
+ var msgs=S.chat.map(function(m){return '<div class="msg '+(m.r==='user'?'u':'a')+'">'+(m.r==='user'?esc(m.t):fmtMsg(m.t))+'</div>'}).join('')
  var sug=['Plan my meals for tomorrow','Am I on track today?','Craving matamis, what do I do?']
- return '<h1>Coach</h1><div class="sub">Knows your target, today\'s food and weight log.</div>'+
- (msgs||'<div class="card note">Ask anything: meal plans, cravings, what to eat after shift, workout swaps.</div>')+
- (busy?'<p><span class="spin"></span>'+busy+'</p>':'')+(errTxt?'<div class="err">'+esc(errTxt)+'</div>':'')+
- '<textarea id="q" rows="2" placeholder="Message your coach"></textarea><div class="row"><button class="full" onclick="sendCoach()">Send</button><button class="sec" onclick="clearChat()">Clear</button></div>'+
- '<div style="margin-top:10px">'+sug.map(function(s){return '<button class="sec" style="margin:0 6px 6px 0;padding:8px 12px;font-size:14px" onclick="document.getElementById(\'q\').value=this.textContent">'+s+'</button>'}).join('')+'</div>'
+ return '<div class="coach"><h1>Coach</h1><div class="sub" style="margin-bottom:8px">Knows your target, today\'s food and weight log.</div>'+
+ '<div class="chat" id="chat">'+(msgs||'<div class="card note">Ask anything: meal plans, cravings, what to eat after shift, workout swaps.</div>')+
+ (busy?'<p><span class="spin"></span>'+busy+'</p>':'')+(errTxt?'<div class="err">'+esc(errTxt)+'</div>':'')+'</div>'+
+ '<div class="chips">'+sug.map(function(x){return '<button class="sec" onclick="document.getElementById(\'q\').value=this.textContent">'+x+'</button>'}).join('')+'</div>'+
+ '<div class="composer"><textarea id="q" rows="2" placeholder="Message your coach" style="margin-bottom:8px"></textarea><div class="row"><button class="full" onclick="sendCoach()">Send</button><button class="sec" onclick="clearChat()">Clear</button></div></div></div>'
 }
 
 function vMe(){
@@ -546,6 +584,7 @@ function draw(){
  v.innerHTML={today:vToday,workout:vWork,coach:vCoach,hist:vHist,me:vMe}[tab]()
  document.querySelectorAll('#nav button').forEach(function(b){b.className=b.dataset.t===tab?'on':''})
  if(keep&&$('#'+keep)&&val){$('#'+keep).value=val}
+ if(tab==='coach'){scrollChat()}
 }
 document.querySelectorAll('#nav button').forEach(function(b){b.onclick=function(){tab=b.dataset.t;errTxt='';draw();window.scrollTo(0,0)}})
 draw()
