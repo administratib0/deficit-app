@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Deficit">
 <title>Deficit</title>
 <style>
-:root{--bg:#0a0e13;--card:#111821;--ink:#eaf1f8;--mute:#7d8fa3;--line:#1f2b38;--acc:#4cc9f0;--pro:#a78bfa;--ok:#34e08a;--warn:#ffc93c;--bad:#ff5d62;color-scheme:dark}
+:root{--bg:#0a0e13;--card:#111821;--ink:#eaf1f8;--mute:#7d8fa3;--line:#1f2b38;--acc:#4cc9f0;--pro:#a78bfa;--ok:#34e08a;--warn:#ffc93c;--bad:#ff5d62;--low:#ff9142;color-scheme:dark}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 main{padding:calc(env(safe-area-inset-top,0px) + 14px) 14px calc(env(safe-area-inset-bottom,0px) + 92px);max-width:560px;margin:0 auto}
@@ -89,7 +89,7 @@ summary{cursor:pointer}
 <script>
 var $=function(s){return document.querySelector(s)}
 var KEY='deficit_v1'
-var VER=12
+var VER=13
 var S=(function(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}})()
 S.set=S.set||{key:'',model:'claude-sonnet-5-5',kcal:1700,kmin:1500,prot:100}
 S.meals=S.meals||{};S.wk=S.wk||{};S.wt=S.wt||[];S.chat=S.chat||[];S.ui=S.ui||{};S.inj=S.inj||{};S.steps=S.steps||{};S.fav=S.fav||[]
@@ -332,8 +332,15 @@ function nudges(){
  var kf=t.k/mx,pf=t.p/S.set.prot,dow=new Date().getDay()
  if(t.k>0&&t.k<mn&&h>=18){out.push({c:'var(--warn)',t:'Mababa pa ang kain mo ('+fmt(t.k)+' kcal). Kumain ng magaan na may protein para umabot sa '+fmt(mn)+'.'})}
  if(t.k>mx+50){out.push({c:'var(--bad)',t:'Lampas ka na ng '+fmt(t.k-mx)+' kcal. Ok lang paminsan-minsan, balik lang bukas.'})}
+
+ var ps=pstat(t.p)
+ if(t.p>0&&ps.tier===1){out.push({c:'var(--warn)',t:fmt(t.p)+' g na. '+(h>=18?'Pwede na for today. ':'Malapit ka na. ')+'Bukas, targetin ulit ang '+fmt(S.set.prot)+' g: unahin ang protein sa bawat kain.'})}
+ if(t.p>0&&ps.tier===0&&h>=18){out.push({c:'var(--low)',t:'Protein '+fmt(t.p)+' g pa lang, mas mababa sa minimum na '+fmt(pmin())+' g. Kumain ng magaan na may protein: itlog, tuna o whey.'})}
+ if(ps.tier===2){out.push({c:'var(--ok)',t:'Naabot mo na ang protein target. Galing!'})}
  var pw=proteinWarn()
  if(pw.length){out.push({c:'var(--warn)',t:pw[0]})}
+ var nu=nextUp()
+ if(nu.length){out.push(nu[0])}
  var plan=(S.plan[dow]||'').toLowerCase(),dn=(S.wk[today()]||[]).length
  if(plan.indexOf('workout')>-1&&dn<S.ex.length){out.push({c:'var(--acc)',t:'Workout day ngayon: '+dn+' of '+S.ex.length+' done.'})}
  var sg=S.set.stepGoal||7000,sn=S.steps[today()]||0
@@ -443,7 +450,7 @@ function protWeek(){
 }
 function proteinWarn(){
  var out=[],tg=S.set.prot,done=protWeek().slice(0,6).filter(function(x){return x.l}),last=done.slice(-3)
- if(last.length===3&&last.every(function(x){return x.v<tg*0.8})){out.push('3 araw nang kulang ang protein mo. Mataas ang tsansang mawalan ng muscle. Unahin ang protein sa bawat kain.')}
+ if(last.length===3&&last.every(function(x){return x.v<pmin()})){out.push('3 araw nang mababa sa minimum ang protein mo. Mataas ang tsansang mawalan ng muscle. Unahin ang protein sa bawat kain.')}
  var cut=new Date();cut.setDate(cut.getDate()-21)
  var ws=S.wt.filter(function(x){return x.d>=keyOf(cut)})
  if(ws.length>=2){
@@ -456,33 +463,95 @@ function proteinWarn(){
  return out
 }
 function proteinCard(t){
- var tg=S.set.prot,left=tg-t.p,pp=Math.min(100,t.p/tg*100),all=S.meals[cur()]||[]
+ var tg=S.set.prot,ps=pstat(t.p),pp=Math.min(100,t.p/tg*100),all=S.meals[cur()]||[]
+ var head=ps.tier===2?'Naabot na!':ps.tier===1?'Pwede na':'Kulang pa '+fmt(tg-t.p)+' g'
  var per=SLOTS.map(function(s){
   var n=0
   all.forEach(function(m){if((m.s||'Snack')===s){n+=+m.p||0}})
   return '<div><div class="lab">'+s.slice(0,5)+'</div><b>'+fmt(n)+'</b></div>'
  }).join('')
  var sugg=''
- if(left>0){
+ if(ps.tier<2){
   var fav=S.fav.map(function(f,i){return {f:f,i:i}}).filter(function(x){return x.f.p>=15}).sort(function(a,b){return b.f.p-a.f.p}).slice(0,3)
   if(fav.length){sugg+='<div class="lab" style="margin-top:12px">Mula sa My foods</div><div class="chips">'+fav.map(function(x){return '<button class="sec" onclick="favAdd('+x.i+')">+ '+esc(x.f.n)+' &middot; '+x.f.p+' g</button>'}).join('')+'</div>'}
   sugg+='<div class="lab" style="margin-top:8px">Madaling protein</div><div class="chips">'+IDEAS.map(function(x,i){return '<button class="sec" onclick="ideaLog('+i+')">'+x[0]+'</button>'}).join('')+'</div>'
  }
- return '<div class="card"><div class="row sp"><h2 style="margin:0">Protein</h2><b style="color:'+(left>0?'var(--pro)':'var(--ok)')+'">'+(left>0?'Kulang pa '+fmt(left)+' g':'Naabot na!')+'</b></div><div class="bar p"><i style="width:'+pp+'%"></i></div><div class="note">'+fmt(t.p)+' of '+fmt(tg)+' g &middot; 25-35 g kada kain</div><div class="grid4">'+per+'</div>'+sugg+'</div>'
+ return '<div class="card"><div class="row sp"><h2 style="margin:0">Protein</h2><b style="color:'+ps.c+'">'+head+'</b></div><div class="bar"><i style="width:'+pp+'%;background:'+ps.c+'"></i></div><div class="note">'+fmt(t.p)+' of '+fmt(tg)+' g &middot; min '+fmt(pmin())+' g &middot; 25-35 g kada kain</div>'+(t.p>0?'<div class="statline" style="color:'+ps.c+';font-size:13px;margin-top:4px">'+esc(ps.t)+'</div>':'')+'<div class="grid4">'+per+'</div>'+sugg+'</div>'
 }
 function weekProtCard(){
  var days=protWeek(),tg=S.set.prot,top=Math.max(tg+20,Math.max.apply(null,days.map(function(x){return x.v})))
  var H=100,W=300,bw=28,gap=(W-7*bw)/8
  var bars=days.map(function(x,i){
-  var h=x.v?Math.max(3,H*x.v/top):0,xx=gap+i*(bw+gap),c=!x.v?'var(--line)':x.v>=tg?'var(--ok)':x.v>=tg*0.8?'var(--pro)':'var(--warn)'
+  var h=x.v?Math.max(3,H*x.v/top):0,xx=gap+i*(bw+gap),c=!x.v?'var(--line)':x.v>=tg?'var(--ok)':x.v>=pmin()?'var(--warn)':'var(--low)'
   return '<rect x="'+xx.toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+bw+'" height="'+h.toFixed(1)+'" rx="5" style="fill:'+c+'"/><text x="'+(xx+bw/2).toFixed(1)+'" y="'+(H+14)+'" text-anchor="middle" font-size="10" style="fill:var(--mute)">'+x.w+'</text>'
  }).join('')
- var ty=(H-H*tg/top).toFixed(1)
+ var ty=(H-H*tg/top).toFixed(1),my=(H-H*pmin()/top).toFixed(1)
  var done=days.slice(0,6).filter(function(x){return x.l}),sum=0
  done.forEach(function(x){sum+=x.v})
  var avg=done.length?Math.round(sum/done.length):0,hit=done.filter(function(x){return x.v>=tg}).length
  var warns=proteinWarn().map(function(w){return '<div class="tip"><i style="background:var(--warn)"></i><span>'+esc(w)+'</span></div>'}).join('')
- return '<div class="card"><div class="lab" style="margin-bottom:8px">Protein this week</div><svg viewBox="0 0 300 116" style="width:100%;height:auto"><line x1="0" x2="300" y1="'+ty+'" y2="'+ty+'" stroke-dasharray="3 4" style="stroke:var(--mute);opacity:.55"/>'+bars+'</svg><div class="grid3"><div><div class="lab">Average</div><b>'+fmt(avg)+' g</b></div><div><div class="lab">Days hit</div><b>'+hit+' / '+done.length+'</b></div><div><div class="lab">Of target</div><b>'+Math.round(avg/tg*100)+'%</b></div></div><div class="note" style="margin-top:6px">Stats use completed days, not today.</div>'+(warns?'<div style="margin-top:8px">'+warns+'</div>':'')+'</div>'
+ return '<div class="card"><div class="lab" style="margin-bottom:8px">Protein this week</div><svg viewBox="0 0 300 116" style="width:100%;height:auto"><line x1="0" x2="300" y1="'+ty+'" y2="'+ty+'" stroke-dasharray="3 4" style="stroke:var(--mute);opacity:.55"/><line x1="0" x2="300" y1="'+my+'" y2="'+my+'" stroke-dasharray="3 4" style="stroke:var(--mute);opacity:.3"/>'+bars+'</svg><div class="grid3"><div><div class="lab">Average</div><b>'+fmt(avg)+' g</b></div><div><div class="lab">Days hit</div><b>'+hit+' / '+done.length+'</b></div><div><div class="lab">Of target</div><b>'+Math.round(avg/tg*100)+'%</b></div></div><div class="note" style="margin-top:6px">Green: target. Yellow: okay for the day. Orange: low. Stats use completed days, not today.</div>'+(warns?'<div style="margin-top:8px">'+warns+'</div>':'')+'</div>'
+}
+
+function pmin(){return S.set.pmin==null?Math.round(S.set.prot*0.7):S.set.pmin}
+function pstat(p){
+ var tg=S.set.prot,mn=pmin()
+ if(p>=tg){return {c:'var(--ok)',t:'Naabot na ang '+fmt(tg)+' g!',tier:2}}
+ if(p>=mn){return {c:'var(--warn)',t:'Pwede na for today (min '+fmt(mn)+' g). Bukas, targetin ulit ang '+fmt(tg)+' g.',tier:1}}
+ return {c:'var(--low)',t:'Kulang pa '+fmt(mn-p)+' g para sa minimum ('+fmt(mn)+' g).',tier:0}
+}
+function planMin(txt){var m=/(\d+)\s*min/i.exec(txt||'');return m?+m[1]:0}
+function isWorkoutDay(i){return /workout/i.test(S.plan[i]||'')}
+function isWalkDay(i){return /walk/i.test(S.plan[i]||'')}
+function nextUp(){
+ var out=[],now=new Date(),dow=now.getDay(),t=today(),n=S.ex.length
+ var inj=!!S.set.med&&(S.set.injDay==null?5:S.set.injDay)===dow
+ var dnT=(S.wk[t]||[]).length,wlT=S.walk[t]||0
+ var y=new Date();y.setDate(y.getDate()-1)
+ var yk=keyOf(y),ydow=y.getDay(),dnY=(S.wk[yk]||[]).length,wlY=S.walk[yk]||0
+ var missedW=isWorkoutDay(ydow)&&dnY===0
+ var ypm=isWalkDay(ydow)?planMin(S.plan[ydow]):0
+ var missedWalk=ypm>0&&wlY<ypm*0.5?ypm-wlY:0
+ var plannedW=isWorkoutDay(dow),plannedWalk=isWalkDay(dow)?planMin(S.plan[dow]):0
+ if(plannedW&&!inj){
+  if(dnT<n){out.push({c:'var(--acc)',t:(missedW?'Na-miss ang workout kahapon, kaya ngayon ang sulit. ':'Workout day ngayon. ')+dnT+' of '+n+' done.'})}
+  else{out.push({c:'var(--ok)',t:'Tapos na ang workout ngayon. Pahinga na at kumain ng protein.'})}
+ }else if(inj){
+  out.push({c:'var(--mute)',t:'Injection day: magaan lang ngayon. Lakad na lang kung kaya, at ilipat ang workout sa susunod na araw.'})
+ }else if(missedW){
+  out.push({c:'var(--acc)',t:'Na-miss ang workout kahapon. Pwede mong gawin ngayon (mga 20-25 min) o ilipat bukas. Huwag lang sunod-sunod na araw.'})
+ }else if(/rest/i.test(S.plan[dow]||'')){
+  out.push({c:'var(--mute)',t:'Rest day ngayon. Okay lang magpahinga.'})
+ }
+ if(plannedWalk){
+  var extra=Math.min(15,missedWalk),goal=plannedWalk+extra
+  if(wlT<goal){out.push({c:'var(--acc)',t:'Walk ngayon: '+goal+' min'+(extra?' ('+plannedWalk+' sa plan + '+extra+' na-miss kahapon)':'')+'. '+wlT+' min na ang nalakad.'})}
+  else{out.push({c:'var(--ok)',t:'Tapos na ang walk ngayon ('+wlT+' min). Galing!'})}
+ }else{
+  var tgt=0
+  S.plan.forEach(function(p,i){if(isWalkDay(i)){tgt+=planMin(p)}})
+  var done=weekWalk()
+  if(tgt>0&&done<tgt*0.6&&wlT<10&&!inj){out.push({c:'var(--acc)',t:'Kulang pa ang lakad mo ngayong linggo ('+done+' of '+tgt+' min). Maglakad ng 10-15 min pagkatapos kumain.'})}
+ }
+ return out
+}
+function nextUpCard(){
+ if(vd){return ''}
+ var n=nextUp()
+ return '<div class="card"><div class="lab" style="margin-bottom:6px">Next up</div>'+(n.length?n.map(function(x){return '<div class="tip"><i style="background:'+x.c+'"></i><span>'+esc(x.t)+'</span></div>'}).join(''):'<div class="note">Walang kailangang gawin ngayon.</div>')+'<button class="sec full" style="margin-top:8px" onclick="replan()">Ask Coach to replan my week</button></div>'
+}
+function replan(){
+ if(busy){return}
+ var lines=[],d=new Date()
+ for(var i=0;i<7;i++){
+  var k=keyOf(d),dw=d.getDay()
+  lines.unshift(DAYS[dw].slice(0,3)+' '+k+': plan "'+(S.plan[dw]||'')+'", workout '+(S.wk[k]||[]).length+'/'+S.ex.length+', walk '+(S.walk[k]||0)+' min')
+  d.setDate(d.getDate()-1)
+ }
+ var inj=S.set.med?' Avoid hard workouts the day after my injection day ('+DAYS[S.set.injDay==null?5:S.set.injDay]+').':''
+ tab='coach';draw()
+ $('#q').value='Replan my workouts and walking for the next 7 days based on what I did and missed. Keep rest days and 20-30 min bodyweight sessions.'+inj+' Last 7 days:\n'+lines.join('\n')
+ sendCoach()
 }
 
 function logWeight(){
@@ -503,14 +572,15 @@ function saveSet(){
  var sj=$('#sj');if(sj){S.set.injDay=+sj.value}
  S.set.med=$('#sm2').checked
  S.set.prot=+$('#sp').value||100
+ S.set.pmin=+$('#sy').value||Math.round(S.set.prot*0.7)
  save();errTxt='Saved.';draw()
 }
 
 function sendCoach(){
  var el=$('#q'),q=el.value.trim()
  if(!q||busy){return}
- var t=totals(today()),last=S.wt.slice(-5).map(function(x){return x.d+': '+x.v+'kg'}).join(', ')
- var sys='You are a practical weight-loss coach for Nico, 34, male, 5\'5", works night shift 11PM-7AM Mon-Fri, does bodyweight workouts of 20-30 min. Eats rice with chicken, pork or beef, usually lunch and dinner. Daily range '+kmin()+'-'+S.set.kcal+' kcal (never below 1,400) and '+S.set.prot+' g protein. Today so far: '+t.k+' kcal, '+t.p+' g protein. Recent weights: '+(last||'none')+'. Workout today: '+(S.wk[today()]||[]).length+'/'+S.ex.length+' done. Walked '+(S.walk[today()]||0)+' min today. Plan: '+S.plan[new Date().getDay()]+'. Be short, specific, Taglish is fine. If asked to plan meals, use Filipino food. No medical diagnosis; for medication questions tell them to see a clinician.'+(S.set.med?' The user takes prescribed weight-loss medication under a doctor, so appetite may be low: encourage regular meals, protein first and steady water. Never give dosing advice.':'')
+ var t=totals(today()),ml=(S.meals[today()]||[]).map(function(m){return (m.s||'Snack')+': '+m.n+' ('+m.k+' kcal, P'+m.p+' C'+(m.c||0)+' F'+(m.f||0)+')'}).join('; '),last=S.wt.slice(-5).map(function(x){return x.d+': '+x.v+'kg'}).join(', ')
+ var sys='You are a practical weight-loss coach for Nico, 34, male, 5\'5", works night shift 11PM-7AM Mon-Fri, does bodyweight workouts of 20-30 min. Eats rice with chicken, pork or beef, usually lunch and dinner. Daily range '+kmin()+'-'+S.set.kcal+' kcal (never below 1,400) and '+S.set.prot+' g protein. Today so far: '+t.k+' kcal, '+t.p+' g protein, '+t.c+' g carbs, '+t.f+' g fat. Foods today: '+(ml||'nothing yet')+'. Protein rule: target '+S.set.prot+' g, minimum acceptable on a bad day '+pmin()+' g. If he is between the minimum and the target, say it is okay for today and to aim for the target tomorrow; if below the minimum, help him fix it. Recent weights: '+(last||'none')+'. Workout today: '+(S.wk[today()]||[]).length+'/'+S.ex.length+' done. Walked '+(S.walk[today()]||0)+' min today. Plan: '+S.plan[new Date().getDay()]+'. Be short, specific, Taglish is fine. If asked to plan meals, use Filipino food. No medical diagnosis; for medication questions tell them to see a clinician.'+(S.set.med?' The user takes prescribed weight-loss medication under a doctor, so appetite may be low: encourage regular meals, protein first and steady water. Never give dosing advice.':'')
  var hist=S.chat.slice(-8).map(function(m){return {role:m.r,content:m.t}})
  S.chat.push({r:'user',t:q});el.value='';busy='Thinking...';errTxt='';draw()
  ask(q,sys,hist).then(function(a){S.chat.push({r:'assistant',t:a});save()}).catch(function(e){errTxt=e.message;S.chat.pop()}).then(function(){busy='';draw()})
@@ -601,6 +671,7 @@ function vWork(){
   return '<div class="item"><b'+(i===dow?' style="color:var(--acc)"':'')+'>'+DAYS[i]+'</b><span>'+esc(p)+'</span></div>'
  }).join('')
  return dayBar('Workout')+'<div class="sub">Plan: '+esc(S.plan[dow])+' &middot; streak '+streak()+' day'+(streak()===1?'':'s')+'</div>'+
+ nextUpCard()+
  '<div class="card"><div class="row sp"><h2>Routine</h2><button class="sec" style="padding:6px 14px" onclick="'+(editW?'saveEdits()':'toggleEdit()')+'">'+(editW?'Save':'Edit')+'</button></div>'+list+(editW?'':'<p class="note">'+done.length+' of '+S.ex.length+' done. Rest 30 seconds between sets. Go at a pace where you can still talk.</p>')+'</div>'+
  walkCard()+
  '<div class="card"><h2>Week plan</h2>'+wk+'<p class="note">'+(editW?'Type anything: Workout, Walk 30 min, Rest day.':'Tap Edit at the top to change your workout and rest days.')+'</p>'+'</div>'
@@ -629,7 +700,7 @@ function vMe(){
  var w=S.wt.slice(-8).reverse().map(function(x){return '<div class="item"><b>'+x.v+' kg</b><span>'+x.d+'</span></div>'}).join('')||'<div class="note">No weigh-ins yet.</div>'
  return '<h1>Me</h1><div class="sub">34 &middot; 5\'5" &middot; night shift</div>'+
  '<div class="card"><h2>Weight</h2><div class="row"><input id="wv" type="number" step="0.1" inputmode="decimal" placeholder="kg today"><button style="margin-bottom:8px" onclick="logWeight()">Log</button></div>'+weightChart()+w+'<p class="note">Weigh once a week on your weigh-in day, same time and same conditions.</p></div>'+
- '<div class="card"><h2>Targets and AI</h2><label class="note">Minimum calories per day</label><input id="sn" type="number" value="'+kmin()+'"><label class="note">Maximum calories per day</label><input id="sc" type="number" value="'+S.set.kcal+'"><label class="note">Protein g per day</label><input id="sp" type="number" value="'+S.set.prot+'"><label class="note">Daily steps goal</label><input id="sg" type="number" value="'+(S.set.stepGoal||7000)+'">'+
+ '<div class="card"><h2>Targets and AI</h2><label class="note">Minimum calories per day</label><input id="sn" type="number" value="'+kmin()+'"><label class="note">Maximum calories per day</label><input id="sc" type="number" value="'+S.set.kcal+'"><label class="note">Protein g per day</label><input id="sp" type="number" value="'+S.set.prot+'"><label class="note">Minimum protein (okay for one day)</label><input id="sy" type="number" value="'+pmin()+'"><label class="note">Daily steps goal</label><input id="sg" type="number" value="'+(S.set.stepGoal||7000)+'">'+
  '<label class="ck" style="padding:6px 0 12px"><input id="sm2" type="checkbox" '+(S.set.med?'checked':'')+'><div>I take prescribed weight-loss medication<span>Shows reminders and tells the Coach. Ask your doctor for your own targets.</span></div></label>'+
  (S.set.med?'<label class="note">Injection day</label><select id="sj">'+DAYS.map(function(d,i){return '<option value="'+i+'"'+(i===(S.set.injDay==null?5:S.set.injDay)?' selected':'')+'>'+d+'</option>'}).join('')+'</select>':'')+
  '<label class="note">Weigh-in day</label><select id="sw">'+DAYS.map(function(d,i){return '<option value="'+i+'"'+(i===S.wd?' selected':'')+'>'+d+'</option>'}).join('')+'</select>'+
